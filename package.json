@@ -1,0 +1,42 @@
+{
+  "name": "maintenance-center-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/muadalrmali-ctrl/maintenance-center-backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/muadalrmali-ctrl/maintenance-center-backend/issues"
+  },
+  "homepage": "https://github.com/muadalrmali-ctrl/maintenance-center-backend#readme",
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^8.5.0",
+    "@types/node": "^25.5.0",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "better-auth": "^1.5.6",
+    "dotenv": "^17.4.0",
+    "drizzle-orm": "^0.45.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^8.5.1",
+    "pg": "^8.20.0"
+  }
+}
