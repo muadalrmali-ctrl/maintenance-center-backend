@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { eq } from "drizzle-orm";
+import { inArray, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { users } from "../../db/schema";
 import { env } from "../../config/env";
@@ -29,6 +29,19 @@ type LoginResult = {
 };
 
 export const authService = {
+  async getTechnicians() {
+    return await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(inArray(users.role, ["technician", "technician_manager"]));
+  },
+
   async registerUser(input: RegisterUserInput) {
     const { name, email, password, role = "technician" } = input;
 

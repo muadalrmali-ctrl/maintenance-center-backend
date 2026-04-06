@@ -2,6 +2,24 @@ import { Request, Response } from "express";
 import { authService } from "./auth.service";
 
 export const authController = {
+  async getTechnicians(req: Request, res: Response) {
+    try {
+      const technicians = await authService.getTechnicians();
+
+      return res.status(200).json({
+        success: true,
+        message: "Technicians retrieved successfully",
+        data: technicians,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve technicians",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
   async register(req: Request, res: Response) {
     try {
       const { name, email, password, role } = req.body;

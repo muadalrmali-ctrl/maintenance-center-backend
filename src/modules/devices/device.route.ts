@@ -11,8 +11,8 @@ router.use(authMiddleware);
 router.get("/", roleMiddleware(["receptionist"]), deviceController.getAll);
 router.get("/:id", roleMiddleware(["receptionist"]), deviceController.getById);
 
-// Admin can manage devices
-router.post("/", roleMiddleware(["admin"]), deviceController.create);
+// Receptionists can register devices while opening new maintenance cases.
+router.post("/", roleMiddleware(["admin", "receptionist"]), deviceController.create);
 router.patch("/:id", roleMiddleware(["admin"]), deviceController.update);
 
 export default router;

@@ -71,6 +71,20 @@
       "when": 1775474017778,
       "tag": "0009_black_black_tom",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1775485000000,
+      "tag": "0010_cases_workflow_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1775486000000,
+      "tag": "0011_seed_cases_reference_data",
+      "breakpoints": true
     }
   ]
 }

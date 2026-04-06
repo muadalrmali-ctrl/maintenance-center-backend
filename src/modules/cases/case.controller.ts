@@ -25,8 +25,13 @@ export const caseController = {
 
       const caseData = await caseService.createCase({
         customerId: validation.data.customerId,
+        customer: validation.data.customer,
         deviceId: validation.data.deviceId,
+        device: validation.data.device,
         customerComplaint: validation.data.customerComplaint,
+        priority: validation.data.priority,
+        maintenanceTeam: validation.data.maintenanceTeam,
+        technicianName: validation.data.technicianName,
         serialNumber: validation.data.serialNumber,
         notes: validation.data.notes,
         deliveryDueAt: validation.data.deliveryDueAt ? new Date(validation.data.deliveryDueAt) : undefined,
@@ -125,6 +130,9 @@ export const caseController = {
       const caseData = await caseService.updateCase(id, {
         deviceId: validation.data.deviceId,
         customerComplaint: validation.data.customerComplaint,
+        priority: validation.data.priority,
+        maintenanceTeam: validation.data.maintenanceTeam,
+        technicianName: validation.data.technicianName,
         serialNumber: validation.data.serialNumber,
         notes: validation.data.notes,
         deliveryDueAt: validation.data.deliveryDueAt ? new Date(validation.data.deliveryDueAt) : null,

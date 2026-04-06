@@ -2,18 +2,43 @@ import { z } from "zod";
 import { ALLOWED_TRANSITIONS, CASE_STATUSES } from "./constants";
 
 export const createCaseSchema = z.object({
-  customerId: z.number().int().positive(),
-  deviceId: z.number().int().positive(),
+  customerId: z.number().int().positive().optional(),
+  customer: z.object({
+    name: z.string().min(1),
+    phone: z.string().min(1),
+    address: z.string().optional(),
+    notes: z.string().optional(),
+  }).optional(),
+  deviceId: z.number().int().positive().optional(),
+  device: z.object({
+    applianceType: z.string().min(1),
+    brand: z.string().optional(),
+    modelName: z.string().min(1),
+    modelCode: z.string().optional(),
+    notes: z.string().optional(),
+  }).optional(),
   customerComplaint: z.string().min(1),
+  priority: z.enum(["منخفضة", "متوسطة", "مرتفعة", "عاجلة"]).optional(),
+  maintenanceTeam: z.string().optional(),
+  technicianName: z.string().optional(),
   serialNumber: z.string().optional(),
   notes: z.string().optional(),
   deliveryDueAt: z.string().optional(),
   assignedTechnicianId: z.number().int().positive().optional(),
+}).refine((data) => data.customerId || data.customer, {
+  message: "customerId or customer is required",
+  path: ["customer"],
+}).refine((data) => data.deviceId || data.device, {
+  message: "deviceId or device is required",
+  path: ["device"],
 });
 
 export const updateCaseSchema = z.object({
   deviceId: z.number().int().positive().optional(),
   customerComplaint: z.string().min(1).optional(),
+  priority: z.enum(["منخفضة", "متوسطة", "مرتفعة", "عاجلة"]).optional(),
+  maintenanceTeam: z.string().optional().nullable(),
+  technicianName: z.string().optional().nullable(),
   serialNumber: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   deliveryDueAt: z.string().optional().nullable(),

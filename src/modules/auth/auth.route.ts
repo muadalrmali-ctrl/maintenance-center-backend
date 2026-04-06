@@ -7,6 +7,12 @@ const router = Router();
 
 router.post("/register", authMiddleware, roleMiddleware(["admin"]), authController.register);
 router.post("/login", authController.login);
+router.get(
+  "/technicians",
+  authMiddleware,
+  roleMiddleware(["receptionist", "technician_manager"]),
+  authController.getTechnicians
+);
 
 router.get("/users-test", async (_req, res) => {
   res.status(200).json({
