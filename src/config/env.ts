@@ -9,4 +9,6 @@ export const env = {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "1h",
   BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || "",
   BETTER_AUTH_URL: process.env.BETTER_AUTH_URL || "",
+  FRONTEND_URL: process.env.FRONTEND_URL || "",
+  FRONTEND_URLS: process.env.FRONTEND_URLS || "",
 };
