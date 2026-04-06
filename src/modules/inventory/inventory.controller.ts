@@ -1,23 +1,19 @@
 import { Request, Response } from "express";
 import { inventoryService } from "./inventory.service";
+import {
+  createCategorySchema,
+  createItemSchema,
+  updateItemSchema,
+  adjustStockSchema,
+} from "./inventory.validation";
 
 export const inventoryController = {
   // Categories
   async createCategory(req: Request, res: Response) {
     try {
-      const { name, description } = req.body;
+      const validatedData = createCategorySchema.parse(req.body);
 
-      if (!name) {
-        return res.status(400).json({
-          success: false,
-          message: "Name is required",
-        });
-      }
-
-      const category = await inventoryService.createCategory({
-        name,
-        description,
-      });
+      const category = await inventoryService.createCategory(validatedData);
 
       return res.status(201).json({
         success: true,
@@ -25,6 +21,13 @@ export const inventoryController = {
         data: category,
       });
     } catch (error) {
+      if (error && typeof error === 'object' && 'name' in error && error.name === "ZodError") {
+        return res.status(400).json({
+          success: false,
+          message: "Validation error",
+          errors: (error as any).errors,
+        });
+      }
       return res.status(500).json({
         success: false,
         message: "Failed to create category",
@@ -54,40 +57,9 @@ export const inventoryController = {
   // Items
   async createItem(req: Request, res: Response) {
     try {
-      const {
-        name,
-        code,
-        categoryId,
-        brand,
-        model,
-        quantity,
-        minimumStock,
-        unitCost,
-        sellingPrice,
-        location,
-        description,
-      } = req.body;
+      const validatedData = createItemSchema.parse(req.body);
 
-      if (!name || !code || unitCost === undefined) {
-        return res.status(400).json({
-          success: false,
-          message: "Name, code, and unitCost are required",
-        });
-      }
-
-      const item = await inventoryService.createItem({
-        name,
-        code,
-        categoryId,
-        brand,
-        model,
-        quantity,
-        minimumStock,
-        unitCost,
-        sellingPrice,
-        location,
-        description,
-      });
+      const item = await inventoryService.createItem(validatedData);
 
       return res.status(201).json({
         success: true,
@@ -95,6 +67,13 @@ export const inventoryController = {
         data: item,
       });
     } catch (error) {
+      if (error && typeof error === 'object' && 'name' in error && error.name === "ZodError") {
+        return res.status(400).json({
+          success: false,
+          message: "Validation error",
+          errors: (error as any).errors,
+        });
+      }
       return res.status(500).json({
         success: false,
         message: "Failed to create inventory item",
@@ -158,19 +137,6 @@ export const inventoryController = {
   async updateItem(req: Request, res: Response) {
     try {
       const id = parseInt(req.params.id as string);
-      const {
-        name,
-        code,
-        categoryId,
-        brand,
-        model,
-        minimumStock,
-        unitCost,
-        sellingPrice,
-        location,
-        description,
-        isActive,
-      } = req.body;
 
       if (isNaN(id)) {
         return res.status(400).json({
@@ -179,19 +145,9 @@ export const inventoryController = {
         });
       }
 
-      const item = await inventoryService.updateItem(id, {
-        name,
-        code,
-        categoryId,
-        brand,
-        model,
-        minimumStock,
-        unitCost,
-        sellingPrice,
-        location,
-        description,
-        isActive,
-      });
+      const validatedData = updateItemSchema.parse(req.body);
+
+      const item = await inventoryService.updateItem(id, validatedData);
 
       if (!item) {
         return res.status(404).json({
@@ -206,6 +162,13 @@ export const inventoryController = {
         data: item,
       });
     } catch (error) {
+      if (error && typeof error === 'object' && 'name' in error && error.name === "ZodError") {
+        return res.status(400).json({
+          success: false,
+          message: "Validation error",
+          errors: (error as any).errors,
+        });
+      }
       return res.status(500).json({
         success: false,
         message: "Failed to update inventory item",
@@ -217,20 +180,12 @@ export const inventoryController = {
   async adjustStock(req: Request, res: Response) {
     try {
       const id = parseInt(req.params.id as string);
-      const { quantity, notes } = req.body;
       const createdBy = req.user?.id;
 
       if (isNaN(id)) {
         return res.status(400).json({
           success: false,
           message: "Invalid item ID",
-        });
-      }
-
-      if (quantity === undefined) {
-        return res.status(400).json({
-          success: false,
-          message: "Quantity is required",
         });
       }
 
@@ -241,9 +196,10 @@ export const inventoryController = {
         });
       }
 
+      const validatedData = adjustStockSchema.parse(req.body);
+
       const item = await inventoryService.adjustStock(id, {
-        quantity,
-        notes,
+        ...validatedData,
         createdBy,
       });
 
@@ -253,6 +209,13 @@ export const inventoryController = {
         data: item,
       });
     } catch (error) {
+      if (error && typeof error === 'object' && 'name' in error && error.name === "ZodError") {
+        return res.status(400).json({
+          success: false,
+          message: "Validation error",
+          errors: (error as any).errors,
+        });
+      }
       return res.status(400).json({
         success: false,
         message: error instanceof Error ? error.message : "Failed to adjust stock",

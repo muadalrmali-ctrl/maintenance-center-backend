@@ -1,22 +1,26 @@
 import { Router } from "express";
 import { invoicesController } from "./invoices.controller";
 import { authMiddleware } from "../../middlewares/auth";
+import { roleMiddleware } from "../../middlewares/role";
 
-const router = Router();
+const invoicesRouter = Router();
+const caseInvoiceRouter = Router();
 
 // All routes require authentication
-router.use(authMiddleware);
+invoicesRouter.use(authMiddleware);
+caseInvoiceRouter.use(authMiddleware);
 
-// POST /api/cases/:caseId/invoice - Create invoice from case
-router.post("/cases/:caseId/invoice", invoicesController.createInvoice);
+// POST /api/cases/:caseId/invoice - Create invoice from case (receptionist)
+caseInvoiceRouter.post("/:caseId/invoice", roleMiddleware(["receptionist"]), invoicesController.createInvoice);
 
-// GET /api/invoices - Get all invoices
-router.get("/", invoicesController.getAllInvoices);
+// GET /api/invoices - Get all invoices (receptionist, store_manager)
+invoicesRouter.get("/", roleMiddleware(["receptionist", "store_manager"]), invoicesController.getAllInvoices);
 
-// GET /api/invoices/:id - Get invoice by ID
-router.get("/:id", invoicesController.getInvoiceById);
+// GET /api/invoices/:id - Get invoice by ID (receptionist, store_manager)
+invoicesRouter.get("/:id", roleMiddleware(["receptionist", "store_manager"]), invoicesController.getInvoiceById);
 
-// PATCH /api/invoices/:id/status - Update invoice status
-router.patch("/:id/status", invoicesController.updateInvoiceStatus);
+// PATCH /api/invoices/:id/status - Update invoice status (receptionist)
+invoicesRouter.patch("/:id/status", roleMiddleware(["receptionist"]), invoicesController.updateInvoiceStatus);
 
-export const invoicesRoutes = router;
+export const invoicesRoutes = invoicesRouter;
+export const caseInvoiceRoutes = caseInvoiceRouter;

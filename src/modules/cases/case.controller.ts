@@ -1,29 +1,22 @@
 import { Request, Response } from "express";
 import { caseService } from "./case.service";
-import { CaseStatus } from "./constants";
+import { createCaseSchema, updateCaseSchema, changeCaseStatusSchema } from "./cases.validation";
 
 export const caseController = {
   async create(req: Request, res: Response) {
     try {
-      const {
-        customerId,
-        deviceId,
-        customerComplaint,
-        initialCheckNotes,
-        internalNotes,
-        deliveryDueAt,
-        assignedTechnicianId,
-      } = req.body;
-      const createdBy = req.user?.id;
-
-      if (!customerId || !deviceId || !customerComplaint) {
+      const validation = createCaseSchema.safeParse(req.body);
+      if (!validation.success) {
         return res.status(400).json({
           success: false,
-          message: "customerId, deviceId, and customerComplaint are required",
+          message: "Validation failed",
+          errors: validation.error.issues,
         });
       }
 
-      if (!createdBy) {
+      const rawUserId = req.user?.id ?? (req.user as any)?.sub;
+      const createdBy = typeof rawUserId === "string" ? Number(rawUserId) : rawUserId;
+      if (!createdBy || Number.isNaN(createdBy)) {
         return res.status(401).json({
           success: false,
           message: "Unauthorized",
@@ -31,13 +24,13 @@ export const caseController = {
       }
 
       const caseData = await caseService.createCase({
-        customerId,
-        deviceId,
-        customerComplaint,
-        initialCheckNotes,
-        internalNotes,
-        deliveryDueAt: deliveryDueAt ? new Date(deliveryDueAt) : undefined,
-        assignedTechnicianId,
+        customerId: validation.data.customerId,
+        deviceId: validation.data.deviceId,
+        customerComplaint: validation.data.customerComplaint,
+        serialNumber: validation.data.serialNumber,
+        notes: validation.data.notes,
+        deliveryDueAt: validation.data.deliveryDueAt ? new Date(validation.data.deliveryDueAt) : undefined,
+        assignedTechnicianId: validation.data.assignedTechnicianId,
         createdBy,
       });
 
@@ -50,7 +43,9 @@ export const caseController = {
       return res.status(500).json({
         success: false,
         message: "Failed to create case",
-        error: error instanceof Error ? error.message : "Unknown error",
+        ...(process.env.NODE_ENV !== "production"
+          ? { error: error instanceof Error ? error.message : "Unknown error" }
+          : {}),
       });
     }
   },
@@ -110,17 +105,7 @@ export const caseController = {
   async update(req: Request, res: Response) {
     try {
       const id = parseInt(req.params.id as string);
-      const {
-        customerComplaint,
-        initialCheckNotes,
-        diagnosisNotes,
-        internalNotes,
-        deliveryDueAt,
-        executionStartedAt,
-        executionDueAt,
-        finalResult,
-        assignedTechnicianId,
-      } = req.body;
+      const validation = updateCaseSchema.safeParse(req.body);
 
       if (isNaN(id)) {
         return res.status(400).json({
@@ -129,16 +114,22 @@ export const caseController = {
         });
       }
 
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: validation.error.issues,
+        });
+      }
+
       const caseData = await caseService.updateCase(id, {
-        customerComplaint,
-        initialCheckNotes,
-        diagnosisNotes,
-        internalNotes,
-        deliveryDueAt: deliveryDueAt ? new Date(deliveryDueAt) : null,
-        executionStartedAt: executionStartedAt ? new Date(executionStartedAt) : null,
-        executionDueAt: executionDueAt ? new Date(executionDueAt) : null,
-        finalResult,
-        assignedTechnicianId,
+        deviceId: validation.data.deviceId,
+        customerComplaint: validation.data.customerComplaint,
+        serialNumber: validation.data.serialNumber,
+        notes: validation.data.notes,
+        deliveryDueAt: validation.data.deliveryDueAt ? new Date(validation.data.deliveryDueAt) : null,
+        assignedTechnicianId: validation.data.assignedTechnicianId,
+        finalResult: validation.data.finalResult,
       });
 
       if (!caseData) {
@@ -165,7 +156,7 @@ export const caseController = {
   async changeStatus(req: Request, res: Response) {
     try {
       const id = parseInt(req.params.id as string);
-      const { toStatus, notes } = req.body;
+      const validation = changeCaseStatusSchema.safeParse(req.body);
       const changedBy = req.user?.id;
 
       if (isNaN(id)) {
@@ -175,10 +166,11 @@ export const caseController = {
         });
       }
 
-      if (!toStatus) {
+      if (!validation.success) {
         return res.status(400).json({
           success: false,
-          message: "toStatus is required",
+          message: "Validation failed",
+          errors: validation.error.issues,
         });
       }
 
@@ -190,8 +182,10 @@ export const caseController = {
       }
 
       const result = await caseService.changeStatus(id, {
-        toStatus: toStatus as CaseStatus,
-        notes,
+        toStatus: validation.data.toStatus,
+        notes: validation.data.notes ?? null,
+        executionDueAt: validation.data.executionDueAt ? new Date(validation.data.executionDueAt) : null,
+        finalResult: validation.data.finalResult ?? null,
         changedBy,
       });
 

@@ -32,6 +32,11 @@ export const authService = {
   async registerUser(input: RegisterUserInput) {
     const { name, email, password, role = "technician" } = input;
 
+    const allowedRoles = ["admin", "receptionist", "technician", "store_manager", "technician_manager"];
+    if (!allowedRoles.includes(role)) {
+      throw new Error("Invalid role specified");
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const createdUsers = await db

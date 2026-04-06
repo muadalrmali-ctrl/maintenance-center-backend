@@ -1,18 +1,11 @@
 import { Request, Response } from "express";
 import { mediaService } from "./media.service";
+import { uploadMediaSchema } from "./media.validation";
 
 export const mediaController = {
   async uploadMedia(req: Request, res: Response) {
     try {
-      const caseId = parseInt(req.params.caseId as string);
       const uploadedBy = req.user?.id;
-
-      if (isNaN(caseId)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid case ID",
-        });
-      }
 
       if (!uploadedBy) {
         return res.status(401).json({
@@ -21,24 +14,16 @@ export const mediaController = {
         });
       }
 
-      // Assume file upload middleware provides file info
-      const file = (req as any).file;
-      if (!file) {
+      const validation = uploadMediaSchema.safeParse(req.body);
+      if (!validation.success) {
         return res.status(400).json({
           success: false,
-          message: "No file uploaded",
+          message: "Validation failed",
+          errors: validation.error.issues,
         });
       }
 
-      const media = await mediaService.uploadMedia(caseId, {
-        fileName: file.filename,
-        originalName: file.originalname,
-        mimeType: file.mimetype,
-        fileSize: file.size,
-        fileUrl: `/uploads/${file.filename}`, // Assuming file is saved in uploads folder
-        assetType: file.mimetype.startsWith('image/') ? 'image' : 'document',
-        description: req.body.description,
-      }, uploadedBy);
+      const media = await mediaService.uploadMedia(validation.data, uploadedBy);
 
       return res.status(201).json({
         success: true,
@@ -53,28 +38,38 @@ export const mediaController = {
     }
   },
 
-  async getCaseMedia(req: Request, res: Response) {
+  async getMediaByEntity(req: Request, res: Response) {
     try {
-      const caseId = parseInt(req.params.caseId as string);
+      const { entityType, entityId } = req.params;
 
-      if (isNaN(caseId)) {
+      if (!entityType || !entityId) {
         return res.status(400).json({
           success: false,
-          message: "Invalid case ID",
+          message: "entityType and entityId are required",
         });
       }
 
-      const media = await mediaService.getCaseMedia(caseId);
+      const entityIdStr = Array.isArray(entityId) ? entityId[0] : entityId;
+      const entityIdNum = parseInt(entityIdStr);
+      if (isNaN(entityIdNum)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid entityId",
+        });
+      }
+
+      const entityTypeStr = Array.isArray(entityType) ? entityType[0] : entityType;
+      const media = await mediaService.getMediaByEntity(entityTypeStr, entityIdNum);
 
       return res.status(200).json({
         success: true,
-        message: "Case media retrieved successfully",
+        message: "Media retrieved successfully",
         data: media,
       });
     } catch (error) {
       return res.status(500).json({
         success: false,
-        message: "Failed to retrieve case media",
+        message: "Failed to retrieve media",
         error: error instanceof Error ? error.message : "Unknown error",
       });
     }

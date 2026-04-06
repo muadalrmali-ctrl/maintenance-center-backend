@@ -1,24 +1,17 @@
 import { Request, Response } from "express";
 import { casePartsService } from "./case-parts.service";
+import { addPartSchema } from "./case-parts.validation";
 
 export const casePartsController = {
   async addPart(req: Request, res: Response) {
     try {
       const caseId = parseInt(req.params.caseId as string);
-      const { inventoryItemId, quantity, notes } = req.body;
       const addedBy = req.user?.id;
 
       if (isNaN(caseId)) {
         return res.status(400).json({
           success: false,
           message: "Invalid case ID",
-        });
-      }
-
-      if (!inventoryItemId || !quantity) {
-        return res.status(400).json({
-          success: false,
-          message: "inventoryItemId and quantity are required",
         });
       }
 
@@ -29,10 +22,10 @@ export const casePartsController = {
         });
       }
 
+      const validatedData = addPartSchema.parse(req.body);
+
       const part = await casePartsService.addPart(caseId, {
-        inventoryItemId,
-        quantity,
-        notes,
+        ...validatedData,
         addedBy,
       });
 
@@ -42,6 +35,13 @@ export const casePartsController = {
         data: part,
       });
     } catch (error) {
+      if (error && typeof error === 'object' && 'name' in error && error.name === "ZodError") {
+        return res.status(400).json({
+          success: false,
+          message: "Validation error",
+          errors: (error as any).errors,
+        });
+      }
       return res.status(400).json({
         success: false,
         message: error instanceof Error ? error.message : "Failed to add part",

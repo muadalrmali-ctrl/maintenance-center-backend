@@ -74,4 +74,33 @@ export const dashboardService = {
       pendingInvoices: pendingInvoicesResult.count,
     };
   },
+
+  async getRevenue(): Promise<{ totalRevenue: number }> {
+    const [revenueResult] = await db
+      .select({ total: sql<number>`sum(${invoices.total})` })
+      .from(invoices)
+      .where(eq(invoices.status, "paid"));
+
+    return {
+      totalRevenue: parseFloat(revenueResult.total?.toString() || "0"),
+    };
+  },
+
+  async getCasesStats(): Promise<{ [key: string]: number }> {
+    const caseStats = await db
+      .select({
+        status: cases.status,
+        count: sql<number>`count(*)` as any,
+      })
+      .from(cases)
+      .where(eq(cases.isArchived, false))
+      .groupBy(cases.status);
+
+    const stats: { [key: string]: number } = {};
+    caseStats.forEach(stat => {
+      stats[stat.status] = stat.count;
+    });
+
+    return stats;
+  },
 };

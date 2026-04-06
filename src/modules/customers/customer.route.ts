@@ -1,10 +1,12 @@
 import { Router } from "express";
 import { customerController } from "./customer.controller";
 import { authMiddleware } from "../../middlewares/auth";
+import { roleMiddleware } from "../../middlewares/role";
 
 const router = Router();
 
 router.use(authMiddleware);
+router.use(roleMiddleware(["receptionist"]));
 
 router.post("/", customerController.create);
 router.get("/", customerController.getAll);

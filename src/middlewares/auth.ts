@@ -3,10 +3,11 @@ import jwt from "jsonwebtoken";
 import { env } from "../config/env";
 
 type JwtUserPayload = {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
+  id?: number | string;
+  sub?: number | string;
+  name?: string;
+  email?: string;
+  role?: string;
   iat?: number;
   exp?: number;
 };
@@ -29,12 +30,21 @@ export const authMiddleware = (
 
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET) as JwtUserPayload;
+    const rawUserId = decoded.id ?? decoded.sub;
+    const userId = typeof rawUserId === "string" ? Number(rawUserId) : rawUserId;
+
+    if (!userId || Number.isNaN(userId)) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token payload",
+      });
+    }
 
     req.user = {
-      id: decoded.id,
-      name: decoded.name,
-      email: decoded.email,
-      role: decoded.role,
+      id: userId,
+      name: decoded.name ?? "",
+      email: decoded.email ?? "",
+      role: decoded.role ?? "technician",
     };
 
     return next();

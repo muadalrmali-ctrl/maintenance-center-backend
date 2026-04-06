@@ -1,24 +1,17 @@
 import { Request, Response } from "express";
 import { caseServicesService } from "./case-services.service";
+import { addServiceSchema } from "./case-services.validation";
 
 export const caseServicesController = {
   async addService(req: Request, res: Response) {
     try {
       const caseId = parseInt(req.params.caseId as string);
-      const { serviceName, description, unitPrice, quantity, performedBy } = req.body;
       const createdBy = req.user?.id;
 
       if (isNaN(caseId)) {
         return res.status(400).json({
           success: false,
           message: "Invalid case ID",
-        });
-      }
-
-      if (!serviceName || unitPrice === undefined) {
-        return res.status(400).json({
-          success: false,
-          message: "serviceName and unitPrice are required",
         });
       }
 
@@ -29,12 +22,10 @@ export const caseServicesController = {
         });
       }
 
+      const validatedData = addServiceSchema.parse(req.body);
+
       const service = await caseServicesService.addService(caseId, {
-        serviceName,
-        description,
-        unitPrice,
-        quantity,
-        performedBy,
+        ...validatedData,
         createdBy,
       });
 
@@ -44,6 +35,13 @@ export const caseServicesController = {
         data: service,
       });
     } catch (error) {
+      if (error && typeof error === 'object' && 'name' in error && error.name === "ZodError") {
+        return res.status(400).json({
+          success: false,
+          message: "Validation error",
+          errors: (error as any).errors,
+        });
+      }
       return res.status(400).json({
         success: false,
         message: error instanceof Error ? error.message : "Failed to add service",

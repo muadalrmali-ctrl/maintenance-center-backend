@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { authController } from "./auth.controller";
 import { authMiddleware } from "../../middlewares/auth";
+import { roleMiddleware } from "../../middlewares/role";
 
 const router = Router();
 
-router.post("/register", authController.register);
+router.post("/register", authMiddleware, roleMiddleware(["admin"]), authController.register);
 router.post("/login", authController.login);
 
 router.get("/users-test", async (_req, res) => {
