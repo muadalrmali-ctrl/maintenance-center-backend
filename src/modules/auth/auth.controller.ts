@@ -2,6 +2,28 @@ import { Request, Response } from "express";
 import { authService } from "./auth.service";
 
 export const authController = {
+  async getTeamMembers(req: Request, res: Response) {
+    try {
+      const members = await authService.getTeamMembers();
+
+      return res.status(200).json({
+        success: true,
+        message: "Team members retrieved successfully",
+        data: members,
+      });
+    } catch (error) {
+      console.error(
+        "[auth:getTeamMembers]",
+        error instanceof Error ? error.message : error
+      );
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve team members",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
   async getTechnicians(req: Request, res: Response) {
     try {
       const technicians = await authService.getTechnicians();

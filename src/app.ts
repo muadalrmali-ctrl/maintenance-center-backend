@@ -13,6 +13,7 @@ import { invoicesRoutes, caseInvoiceRoutes } from "./modules/invoices/invoices.r
 import { dashboardRoutes } from "./modules/dashboard/dashboard.route";
 import { mediaRoutes } from "./modules/media/media.route";
 import { notificationsRoutes } from "./modules/notifications/notifications.route";
+import invitationRoutes from "./modules/invitations/invitation.route";
 
 const app = express();
 
@@ -93,6 +94,7 @@ app.get("/db-check", async (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/invitations", invitationRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/devices", deviceRoutes);
 app.use("/api/cases", caseRoutes);

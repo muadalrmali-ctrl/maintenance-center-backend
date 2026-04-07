@@ -2,6 +2,13 @@ import { Request, Response } from "express";
 import { caseService } from "./case.service";
 import { createCaseSchema, updateCaseSchema, changeCaseStatusSchema } from "./cases.validation";
 
+const logCaseError = (action: string, error: unknown) => {
+  console.error(
+    `[cases:${action}]`,
+    error instanceof Error ? error.message : error
+  );
+};
+
 export const caseController = {
   async create(req: Request, res: Response) {
     try {
@@ -45,6 +52,7 @@ export const caseController = {
         data: caseData,
       });
     } catch (error) {
+      logCaseError("create", error);
       return res.status(500).json({
         success: false,
         message: "Failed to create case",
@@ -65,6 +73,7 @@ export const caseController = {
         data: cases,
       });
     } catch (error) {
+      logCaseError("getAll", error);
       return res.status(500).json({
         success: false,
         message: "Failed to retrieve cases",
@@ -99,6 +108,7 @@ export const caseController = {
         data: caseData,
       });
     } catch (error) {
+      logCaseError("getById", error);
       return res.status(500).json({
         success: false,
         message: "Failed to retrieve case",
@@ -153,6 +163,7 @@ export const caseController = {
         data: caseData,
       });
     } catch (error) {
+      logCaseError("update", error);
       return res.status(500).json({
         success: false,
         message: "Failed to update case",
@@ -203,6 +214,7 @@ export const caseController = {
         data: result,
       });
     } catch (error) {
+      logCaseError("changeStatus", error);
       return res.status(400).json({
         success: false,
         message: error instanceof Error ? error.message : "Failed to change status",

@@ -9,6 +9,23 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const staffInvitations = pgTable("staff_invitations", {
+  id: serial("id").primaryKey(),
+  tokenHash: text("token_hash").notNull().unique(),
+  role: text("role").notNull(),
+  status: text("status").notNull().default("pending"),
+  name: text("name"),
+  phone: text("phone"),
+  notes: text("notes"),
+  invitedBy: integer("invited_by").references(() => users.id),
+  acceptedBy: integer("accepted_by").references(() => users.id),
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),

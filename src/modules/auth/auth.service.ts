@@ -29,6 +29,19 @@ type LoginResult = {
 };
 
 export const authService = {
+  async getTeamMembers() {
+    return await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(inArray(users.role, ["technician", "technician_manager", "store_manager", "receptionist", "admin"]));
+  },
+
   async getTechnicians() {
     return await db
       .select({

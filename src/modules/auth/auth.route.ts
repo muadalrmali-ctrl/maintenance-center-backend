@@ -13,6 +13,12 @@ router.get(
   roleMiddleware(["receptionist", "technician_manager"]),
   authController.getTechnicians
 );
+router.get(
+  "/team",
+  authMiddleware,
+  roleMiddleware(["admin", "receptionist", "technician_manager"]),
+  authController.getTeamMembers
+);
 
 router.get("/users-test", async (_req, res) => {
   res.status(200).json({
