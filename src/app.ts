@@ -59,7 +59,6 @@ const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
 };
 
 app.use(corsMiddleware);
-app.options("*", corsMiddleware);
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
@@ -71,8 +70,7 @@ app.get("/health", (_req, res) => {
 
 app.get("/api/health", (_req, res) => {
   res.status(200).json({
-    success: true,
-    message: "Backend is running",
+    ok: true,
   });
 });
 
