@@ -6,7 +6,7 @@ import { roleMiddleware } from "../../middlewares/role";
 const router = Router();
 
 router.use(authMiddleware);
-router.use(roleMiddleware(["store_manager"]));
+router.use(roleMiddleware(["store_manager", "technician", "technician_manager"]));
 
 router.post("/:caseId/parts", casePartsController.addPart);
 router.get("/:caseId/parts", casePartsController.getCaseParts);

@@ -20,6 +20,9 @@ type CasePart = {
   addedBy: number;
   createdAt: Date | null;
   updatedAt: Date | null;
+  inventoryName?: string | null;
+  inventoryCode?: string | null;
+  inventoryImageUrl?: string | null;
 };
 
 export const casePartsService = {
@@ -118,8 +121,23 @@ export const casePartsService = {
 
   async getCaseParts(caseId: number): Promise<CasePart[]> {
     return await db
-      .select()
+      .select({
+        id: caseParts.id,
+        caseId: caseParts.caseId,
+        inventoryItemId: caseParts.inventoryItemId,
+        quantity: caseParts.quantity,
+        unitPrice: caseParts.unitPrice,
+        totalPrice: caseParts.totalPrice,
+        notes: caseParts.notes,
+        addedBy: caseParts.addedBy,
+        createdAt: caseParts.createdAt,
+        updatedAt: caseParts.updatedAt,
+        inventoryName: inventoryItems.name,
+        inventoryCode: inventoryItems.code,
+        inventoryImageUrl: inventoryItems.imageUrl,
+      })
       .from(caseParts)
+      .leftJoin(inventoryItems, eq(caseParts.inventoryItemId, inventoryItems.id))
       .where(eq(caseParts.caseId, caseId));
   },
 };

@@ -18,7 +18,7 @@ export const createCaseSchema = z.object({
     notes: z.string().optional(),
   }).optional(),
   customerComplaint: z.string().min(1),
-  priority: z.enum(["منخفضة", "متوسطة", "مرتفعة", "عاجلة"]).optional(),
+  priority: z.enum(["منخفضة", "متوسطة", "مرتفعة", "عاجلة", "حالة حادثة"]).optional(),
   maintenanceTeam: z.string().optional(),
   technicianName: z.string().optional(),
   serialNumber: z.string().optional(),
@@ -36,12 +36,21 @@ export const createCaseSchema = z.object({
 export const updateCaseSchema = z.object({
   deviceId: z.number().int().positive().optional(),
   customerComplaint: z.string().min(1).optional(),
-  priority: z.enum(["منخفضة", "متوسطة", "مرتفعة", "عاجلة"]).optional(),
+  priority: z.enum(["منخفضة", "متوسطة", "مرتفعة", "عاجلة", "حالة حادثة"]).optional(),
   maintenanceTeam: z.string().optional().nullable(),
   technicianName: z.string().optional().nullable(),
   serialNumber: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   deliveryDueAt: z.string().optional().nullable(),
+  waitingPartInventoryItemId: z.number().int().positive().optional().nullable(),
+  waitingPartName: z.string().optional().nullable(),
+  waitingPartNotes: z.string().optional().nullable(),
+  waitingPartImageUrl: z.string().max(1_100_000).optional().nullable(),
+  diagnosisNote: z.string().optional().nullable(),
+  faultCause: z.string().optional().nullable(),
+  latestMessage: z.string().optional().nullable(),
+  latestMessageChannel: z.string().optional().nullable(),
+  latestMessageSentAt: z.string().optional().nullable(),
   assignedTechnicianId: z.number().int().positive().optional().nullable(),
   finalResult: z.string().optional().nullable(),
 });
@@ -75,12 +84,6 @@ export function validateStatusSpecificRules(
   toStatus: string,
   input: { notes?: string | null; executionDueAt?: Date | null; finalResult?: string | null },
 ): StatusValidationResult {
-  if (toStatus === CASE_STATUSES.IN_PROGRESS) {
-    if (!input.executionDueAt) {
-      return { valid: false, error: "executionDueAt is required when moving to in_progress" };
-    }
-  }
-
   if (toStatus === CASE_STATUSES.NOT_REPAIRABLE) {
     if (!input.notes && !input.finalResult) {
       return {

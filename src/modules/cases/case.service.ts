@@ -1,5 +1,5 @@
 import { db } from "../../db";
-import { cases, caseStatusHistory, customers, devices } from "../../db/schema";
+import { cases, caseStatusHistory, customers, devices, inventoryItems, users } from "../../db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { CaseStatus, CASE_STATUSES } from "./constants";
 import { validateStatusTransition, validateStatusSpecificRules } from "./cases.validation";
@@ -40,6 +40,15 @@ type UpdateCaseInput = {
   serialNumber?: string | null;
   notes?: string | null;
   deliveryDueAt?: Date | null;
+  waitingPartInventoryItemId?: number | null;
+  waitingPartName?: string | null;
+  waitingPartNotes?: string | null;
+  waitingPartImageUrl?: string | null;
+  diagnosisNote?: string | null;
+  faultCause?: string | null;
+  latestMessage?: string | null;
+  latestMessageChannel?: string | null;
+  latestMessageSentAt?: Date | null;
   assignedTechnicianId?: number | null;
   finalResult?: string | null;
 };
@@ -67,6 +76,15 @@ type CaseRow = {
   deliveryDueAt: Date | null;
   executionStartedAt: Date | null;
   executionDueAt: Date | null;
+  waitingPartInventoryItemId: number | null;
+  waitingPartName: string | null;
+  waitingPartNotes: string | null;
+  waitingPartImageUrl: string | null;
+  diagnosisNote: string | null;
+  faultCause: string | null;
+  latestMessage: string | null;
+  latestMessageChannel: string | null;
+  latestMessageSentAt: Date | null;
   finalResult: string | null;
   isArchived: boolean;
   createdBy: number;
@@ -102,6 +120,55 @@ type CaseDetails = {
     notes: string | null;
   } | null;
   history: CaseHistoryRow[];
+  waitingPartInventoryItem: {
+    id: number;
+    name: string;
+    code: string;
+    imageUrl: string | null;
+    sellingPrice: string | null;
+  } | null;
+  createdByUser: {
+    id: number;
+    name: string;
+    email: string;
+  } | null;
+  assignedTechnician: {
+    id: number;
+    name: string;
+    email: string;
+  } | null;
+};
+
+const returnCaseFields = {
+  id: cases.id,
+  caseCode: cases.caseCode,
+  customerId: cases.customerId,
+  deviceId: cases.deviceId,
+  status: cases.status,
+  customerComplaint: cases.customerComplaint,
+  priority: cases.priority,
+  maintenanceTeam: cases.maintenanceTeam,
+  technicianName: cases.technicianName,
+  serialNumber: cases.serialNumber,
+  notes: cases.notes,
+  deliveryDueAt: cases.deliveryDueAt,
+  executionStartedAt: cases.executionStartedAt,
+  executionDueAt: cases.executionDueAt,
+  waitingPartInventoryItemId: cases.waitingPartInventoryItemId,
+  waitingPartName: cases.waitingPartName,
+  waitingPartNotes: cases.waitingPartNotes,
+  waitingPartImageUrl: cases.waitingPartImageUrl,
+  diagnosisNote: cases.diagnosisNote,
+  faultCause: cases.faultCause,
+  latestMessage: cases.latestMessage,
+  latestMessageChannel: cases.latestMessageChannel,
+  latestMessageSentAt: cases.latestMessageSentAt,
+  finalResult: cases.finalResult,
+  isArchived: cases.isArchived,
+  createdBy: cases.createdBy,
+  assignedTechnicianId: cases.assignedTechnicianId,
+  createdAt: cases.createdAt,
+  updatedAt: cases.updatedAt,
 };
 
 export const caseService = {
@@ -180,28 +247,7 @@ export const caseService = {
           assignedTechnicianId: input.assignedTechnicianId,
           createdBy: input.createdBy,
         })
-        .returning({
-          id: cases.id,
-          caseCode: cases.caseCode,
-          customerId: cases.customerId,
-          deviceId: cases.deviceId,
-          status: cases.status,
-          customerComplaint: cases.customerComplaint,
-          priority: cases.priority,
-          maintenanceTeam: cases.maintenanceTeam,
-          technicianName: cases.technicianName,
-          serialNumber: cases.serialNumber,
-          notes: cases.notes,
-          deliveryDueAt: cases.deliveryDueAt,
-          executionStartedAt: cases.executionStartedAt,
-          executionDueAt: cases.executionDueAt,
-          finalResult: cases.finalResult,
-          isArchived: cases.isArchived,
-          createdBy: cases.createdBy,
-          assignedTechnicianId: cases.assignedTechnicianId,
-          createdAt: cases.createdAt,
-          updatedAt: cases.updatedAt,
-        });
+        .returning(returnCaseFields);
 
       const createdCase = createdCases[0];
 
@@ -234,6 +280,15 @@ export const caseService = {
         deliveryDueAt: cases.deliveryDueAt,
         executionStartedAt: cases.executionStartedAt,
         executionDueAt: cases.executionDueAt,
+        waitingPartInventoryItemId: cases.waitingPartInventoryItemId,
+        waitingPartName: cases.waitingPartName,
+        waitingPartNotes: cases.waitingPartNotes,
+        waitingPartImageUrl: cases.waitingPartImageUrl,
+        diagnosisNote: cases.diagnosisNote,
+        faultCause: cases.faultCause,
+        latestMessage: cases.latestMessage,
+        latestMessageChannel: cases.latestMessageChannel,
+        latestMessageSentAt: cases.latestMessageSentAt,
         finalResult: cases.finalResult,
         isArchived: cases.isArchived,
         createdBy: cases.createdBy,
@@ -256,28 +311,7 @@ export const caseService = {
 
   async getCaseById(id: number): Promise<CaseDetails | undefined> {
     const foundCases = await db
-      .select({
-        id: cases.id,
-        caseCode: cases.caseCode,
-        customerId: cases.customerId,
-        deviceId: cases.deviceId,
-        status: cases.status,
-        customerComplaint: cases.customerComplaint,
-        priority: cases.priority,
-        maintenanceTeam: cases.maintenanceTeam,
-        technicianName: cases.technicianName,
-        serialNumber: cases.serialNumber,
-        notes: cases.notes,
-        deliveryDueAt: cases.deliveryDueAt,
-        executionStartedAt: cases.executionStartedAt,
-        executionDueAt: cases.executionDueAt,
-        finalResult: cases.finalResult,
-        isArchived: cases.isArchived,
-        createdBy: cases.createdBy,
-        assignedTechnicianId: cases.assignedTechnicianId,
-        createdAt: cases.createdAt,
-        updatedAt: cases.updatedAt,
-      })
+      .select(returnCaseFields)
       .from(cases)
       .where(eq(cases.id, id))
       .limit(1);
@@ -317,11 +351,49 @@ export const caseService = {
       .where(eq(caseStatusHistory.caseId, id))
       .orderBy(caseStatusHistory.createdAt);
 
+    const waitingPartInventoryItem = caseData.waitingPartInventoryItemId
+      ? (
+          await db
+            .select({
+              id: inventoryItems.id,
+              name: inventoryItems.name,
+              code: inventoryItems.code,
+              imageUrl: inventoryItems.imageUrl,
+              sellingPrice: inventoryItems.sellingPrice,
+            })
+            .from(inventoryItems)
+            .where(eq(inventoryItems.id, caseData.waitingPartInventoryItemId))
+            .limit(1)
+        )[0] || null
+      : null;
+
+    const createdByUser =
+      (
+        await db
+          .select({ id: users.id, name: users.name, email: users.email })
+          .from(users)
+          .where(eq(users.id, caseData.createdBy))
+          .limit(1)
+      )[0] || null;
+
+    const assignedTechnician = caseData.assignedTechnicianId
+      ? (
+          await db
+            .select({ id: users.id, name: users.name, email: users.email })
+            .from(users)
+            .where(eq(users.id, caseData.assignedTechnicianId))
+            .limit(1)
+        )[0] || null
+      : null;
+
     return {
       caseData,
       customer: customerResult[0] || null,
       device: deviceResult[0] || null,
       history,
+      waitingPartInventoryItem,
+      createdByUser,
+      assignedTechnician,
     };
   },
 
@@ -338,6 +410,15 @@ export const caseService = {
     if (input.serialNumber !== undefined) updateData.serialNumber = input.serialNumber;
     if (input.notes !== undefined) updateData.notes = input.notes;
     if (input.deliveryDueAt !== undefined) updateData.deliveryDueAt = input.deliveryDueAt;
+    if (input.waitingPartInventoryItemId !== undefined) updateData.waitingPartInventoryItemId = input.waitingPartInventoryItemId;
+    if (input.waitingPartName !== undefined) updateData.waitingPartName = input.waitingPartName;
+    if (input.waitingPartNotes !== undefined) updateData.waitingPartNotes = input.waitingPartNotes;
+    if (input.waitingPartImageUrl !== undefined) updateData.waitingPartImageUrl = input.waitingPartImageUrl;
+    if (input.diagnosisNote !== undefined) updateData.diagnosisNote = input.diagnosisNote;
+    if (input.faultCause !== undefined) updateData.faultCause = input.faultCause;
+    if (input.latestMessage !== undefined) updateData.latestMessage = input.latestMessage;
+    if (input.latestMessageChannel !== undefined) updateData.latestMessageChannel = input.latestMessageChannel;
+    if (input.latestMessageSentAt !== undefined) updateData.latestMessageSentAt = input.latestMessageSentAt;
     if (input.assignedTechnicianId !== undefined) updateData.assignedTechnicianId = input.assignedTechnicianId;
     if (input.finalResult !== undefined) updateData.finalResult = input.finalResult;
 
@@ -345,28 +426,7 @@ export const caseService = {
       .update(cases)
       .set(updateData)
       .where(eq(cases.id, id))
-      .returning({
-        id: cases.id,
-        caseCode: cases.caseCode,
-        customerId: cases.customerId,
-        deviceId: cases.deviceId,
-        status: cases.status,
-        customerComplaint: cases.customerComplaint,
-        priority: cases.priority,
-        maintenanceTeam: cases.maintenanceTeam,
-        technicianName: cases.technicianName,
-        serialNumber: cases.serialNumber,
-        notes: cases.notes,
-        deliveryDueAt: cases.deliveryDueAt,
-        executionStartedAt: cases.executionStartedAt,
-        executionDueAt: cases.executionDueAt,
-        finalResult: cases.finalResult,
-        isArchived: cases.isArchived,
-        createdBy: cases.createdBy,
-        assignedTechnicianId: cases.assignedTechnicianId,
-        createdAt: cases.createdAt,
-        updatedAt: cases.updatedAt,
-      });
+      .returning(returnCaseFields);
 
     return updatedCases[0];
   },
@@ -414,28 +474,7 @@ export const caseService = {
         .update(cases)
         .set(updateData)
         .where(eq(cases.id, id))
-        .returning({
-          id: cases.id,
-          caseCode: cases.caseCode,
-          customerId: cases.customerId,
-          deviceId: cases.deviceId,
-          status: cases.status,
-          customerComplaint: cases.customerComplaint,
-          priority: cases.priority,
-          maintenanceTeam: cases.maintenanceTeam,
-          technicianName: cases.technicianName,
-          serialNumber: cases.serialNumber,
-          notes: cases.notes,
-          deliveryDueAt: cases.deliveryDueAt,
-          executionStartedAt: cases.executionStartedAt,
-          executionDueAt: cases.executionDueAt,
-          finalResult: cases.finalResult,
-          isArchived: cases.isArchived,
-          createdBy: cases.createdBy,
-          assignedTechnicianId: cases.assignedTechnicianId,
-          createdAt: cases.createdAt,
-          updatedAt: cases.updatedAt,
-        });
+        .returning(returnCaseFields);
 
       const updatedCase = updatedCases[0];
 

@@ -146,6 +146,15 @@ export const caseController = {
         serialNumber: validation.data.serialNumber,
         notes: validation.data.notes,
         deliveryDueAt: validation.data.deliveryDueAt ? new Date(validation.data.deliveryDueAt) : null,
+        waitingPartInventoryItemId: validation.data.waitingPartInventoryItemId,
+        waitingPartName: validation.data.waitingPartName,
+        waitingPartNotes: validation.data.waitingPartNotes,
+        waitingPartImageUrl: validation.data.waitingPartImageUrl,
+        diagnosisNote: validation.data.diagnosisNote,
+        faultCause: validation.data.faultCause,
+        latestMessage: validation.data.latestMessage,
+        latestMessageChannel: validation.data.latestMessageChannel,
+        latestMessageSentAt: validation.data.latestMessageSentAt ? new Date(validation.data.latestMessageSentAt) : null,
         assignedTechnicianId: validation.data.assignedTechnicianId,
         finalResult: validation.data.finalResult,
       });
@@ -176,7 +185,8 @@ export const caseController = {
     try {
       const id = parseInt(req.params.id as string);
       const validation = changeCaseStatusSchema.safeParse(req.body);
-      const changedBy = req.user?.id;
+      const rawUserId = req.user?.id ?? (req.user as any)?.sub;
+      const changedBy = typeof rawUserId === "string" ? Number(rawUserId) : rawUserId;
 
       if (isNaN(id)) {
         return res.status(400).json({
@@ -193,7 +203,7 @@ export const caseController = {
         });
       }
 
-      if (!changedBy) {
+      if (!changedBy || Number.isNaN(changedBy)) {
         return res.status(401).json({
           success: false,
           message: "Unauthorized",

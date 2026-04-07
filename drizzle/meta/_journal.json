@@ -99,6 +99,13 @@
       "when": 1775661000000,
       "tag": "0013_inventory_item_images",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1775747000000,
+      "tag": "0014_case_details_workflow",
+      "breakpoints": true
     }
   ]
 }
