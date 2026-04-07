@@ -7,6 +7,16 @@ import {
   adjustStockSchema,
 } from "./inventory.validation";
 
+const logInventoryError = (action: string, error: unknown) => {
+  console.error(
+    `[inventory:${action}]`,
+    error instanceof Error ? error.message : error
+  );
+};
+
+const isZodError = (error: unknown) =>
+  error && typeof error === "object" && "name" in error && error.name === "ZodError";
+
 export const inventoryController = {
   // Categories
   async createCategory(req: Request, res: Response) {
@@ -21,7 +31,8 @@ export const inventoryController = {
         data: category,
       });
     } catch (error) {
-      if (error && typeof error === 'object' && 'name' in error && error.name === "ZodError") {
+      logInventoryError("createCategory", error);
+      if (isZodError(error)) {
         return res.status(400).json({
           success: false,
           message: "Validation error",
@@ -46,6 +57,7 @@ export const inventoryController = {
         data: categories,
       });
     } catch (error) {
+      logInventoryError("getCategories", error);
       return res.status(500).json({
         success: false,
         message: "Failed to retrieve categories",
@@ -67,7 +79,8 @@ export const inventoryController = {
         data: item,
       });
     } catch (error) {
-      if (error && typeof error === 'object' && 'name' in error && error.name === "ZodError") {
+      logInventoryError("createItem", error);
+      if (isZodError(error)) {
         return res.status(400).json({
           success: false,
           message: "Validation error",
@@ -92,6 +105,7 @@ export const inventoryController = {
         data: items,
       });
     } catch (error) {
+      logInventoryError("getItems", error);
       return res.status(500).json({
         success: false,
         message: "Failed to retrieve inventory items",
@@ -126,6 +140,7 @@ export const inventoryController = {
         data: item,
       });
     } catch (error) {
+      logInventoryError("getItemById", error);
       return res.status(500).json({
         success: false,
         message: "Failed to retrieve inventory item",
@@ -162,7 +177,8 @@ export const inventoryController = {
         data: item,
       });
     } catch (error) {
-      if (error && typeof error === 'object' && 'name' in error && error.name === "ZodError") {
+      logInventoryError("updateItem", error);
+      if (isZodError(error)) {
         return res.status(400).json({
           success: false,
           message: "Validation error",
@@ -209,7 +225,8 @@ export const inventoryController = {
         data: item,
       });
     } catch (error) {
-      if (error && typeof error === 'object' && 'name' in error && error.name === "ZodError") {
+      logInventoryError("adjustStock", error);
+      if (isZodError(error)) {
         return res.status(400).json({
           success: false,
           message: "Validation error",

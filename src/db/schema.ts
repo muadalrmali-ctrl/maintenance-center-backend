@@ -101,6 +101,7 @@ export const inventoryItems = pgTable("inventory_items", {
   minimumStock: integer("minimum_stock"),
   unitCost: numeric("unit_cost").notNull(),
   sellingPrice: numeric("selling_price"),
+  imageUrl: text("image_url"),
   location: text("location"),
   description: text("description"),
   isActive: boolean("is_active").notNull().default(true),

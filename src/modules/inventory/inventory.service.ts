@@ -25,6 +25,7 @@ type CreateItemInput = {
   minimumStock?: number;
   unitCost: number;
   sellingPrice?: number;
+  imageUrl?: string;
   location?: string;
   description?: string;
 };
@@ -38,6 +39,7 @@ type UpdateItemInput = {
   minimumStock?: number | null;
   unitCost?: number;
   sellingPrice?: number | null;
+  imageUrl?: string | null;
   location?: string | null;
   description?: string | null;
   isActive?: boolean;
@@ -54,11 +56,13 @@ type Item = {
   minimumStock: number | null;
   unitCost: string;
   sellingPrice: string | null;
+  imageUrl: string | null;
   location: string | null;
   description: string | null;
   isActive: boolean;
   createdAt: Date | null;
   updatedAt: Date | null;
+  categoryName?: string | null;
 };
 
 type AdjustStockInput = {
@@ -105,6 +109,7 @@ export const inventoryService = {
         minimumStock: input.minimumStock,
         unitCost: input.unitCost.toString(),
         sellingPrice: input.sellingPrice?.toString(),
+        imageUrl: input.imageUrl,
         location: input.location,
         description: input.description,
       })
@@ -119,6 +124,7 @@ export const inventoryService = {
         minimumStock: inventoryItems.minimumStock,
         unitCost: inventoryItems.unitCost,
         sellingPrice: inventoryItems.sellingPrice,
+        imageUrl: inventoryItems.imageUrl,
         location: inventoryItems.location,
         description: inventoryItems.description,
         isActive: inventoryItems.isActive,
@@ -130,13 +136,53 @@ export const inventoryService = {
   },
 
   async getItems(): Promise<Item[]> {
-    return await db.select().from(inventoryItems);
+    return await db
+      .select({
+        id: inventoryItems.id,
+        name: inventoryItems.name,
+        code: inventoryItems.code,
+        categoryId: inventoryItems.categoryId,
+        categoryName: inventoryCategories.name,
+        brand: inventoryItems.brand,
+        model: inventoryItems.model,
+        quantity: inventoryItems.quantity,
+        minimumStock: inventoryItems.minimumStock,
+        unitCost: inventoryItems.unitCost,
+        sellingPrice: inventoryItems.sellingPrice,
+        imageUrl: inventoryItems.imageUrl,
+        location: inventoryItems.location,
+        description: inventoryItems.description,
+        isActive: inventoryItems.isActive,
+        createdAt: inventoryItems.createdAt,
+        updatedAt: inventoryItems.updatedAt,
+      })
+      .from(inventoryItems)
+      .leftJoin(inventoryCategories, eq(inventoryItems.categoryId, inventoryCategories.id));
   },
 
   async getItemById(id: number): Promise<Item | undefined> {
     const foundItems = await db
-      .select()
+      .select({
+        id: inventoryItems.id,
+        name: inventoryItems.name,
+        code: inventoryItems.code,
+        categoryId: inventoryItems.categoryId,
+        categoryName: inventoryCategories.name,
+        brand: inventoryItems.brand,
+        model: inventoryItems.model,
+        quantity: inventoryItems.quantity,
+        minimumStock: inventoryItems.minimumStock,
+        unitCost: inventoryItems.unitCost,
+        sellingPrice: inventoryItems.sellingPrice,
+        imageUrl: inventoryItems.imageUrl,
+        location: inventoryItems.location,
+        description: inventoryItems.description,
+        isActive: inventoryItems.isActive,
+        createdAt: inventoryItems.createdAt,
+        updatedAt: inventoryItems.updatedAt,
+      })
       .from(inventoryItems)
+      .leftJoin(inventoryCategories, eq(inventoryItems.categoryId, inventoryCategories.id))
       .where(eq(inventoryItems.id, id))
       .limit(1);
 
@@ -156,6 +202,7 @@ export const inventoryService = {
     if (input.minimumStock !== undefined) updateData.minimumStock = input.minimumStock;
     if (input.unitCost !== undefined) updateData.unitCost = input.unitCost.toString();
     if (input.sellingPrice !== undefined) updateData.sellingPrice = input.sellingPrice?.toString();
+    if (input.imageUrl !== undefined) updateData.imageUrl = input.imageUrl;
     if (input.location !== undefined) updateData.location = input.location;
     if (input.description !== undefined) updateData.description = input.description;
     if (input.isActive !== undefined) updateData.isActive = input.isActive;
@@ -175,6 +222,7 @@ export const inventoryService = {
         minimumStock: inventoryItems.minimumStock,
         unitCost: inventoryItems.unitCost,
         sellingPrice: inventoryItems.sellingPrice,
+        imageUrl: inventoryItems.imageUrl,
         location: inventoryItems.location,
         description: inventoryItems.description,
         isActive: inventoryItems.isActive,
@@ -216,6 +264,7 @@ export const inventoryService = {
         minimumStock: inventoryItems.minimumStock,
         unitCost: inventoryItems.unitCost,
         sellingPrice: inventoryItems.sellingPrice,
+        imageUrl: inventoryItems.imageUrl,
         location: inventoryItems.location,
         description: inventoryItems.description,
         isActive: inventoryItems.isActive,
