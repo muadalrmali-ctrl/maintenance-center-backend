@@ -60,7 +60,31 @@ const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
 };
 
 app.use(corsMiddleware);
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
+
+app.use(
+  (
+    error: unknown,
+    _req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
+    if (
+      error &&
+      typeof error === "object" &&
+      "type" in error &&
+      error.type === "entity.too.large"
+    ) {
+      console.error("[request:body-too-large]", error);
+      return res.status(413).json({
+        success: false,
+        message: "Request body is too large",
+      });
+    }
+
+    return next(error);
+  }
+);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({
