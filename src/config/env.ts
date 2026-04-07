@@ -11,4 +11,5 @@ export const env = {
   BETTER_AUTH_URL: process.env.BETTER_AUTH_URL || "",
   FRONTEND_URL: process.env.FRONTEND_URL || "",
   FRONTEND_URLS: process.env.FRONTEND_URLS || "",
+  CORS_ORIGINS: process.env.CORS_ORIGINS || "",
 };

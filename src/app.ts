@@ -20,14 +20,16 @@ const normalizeOrigin = (origin: string) => origin.replace(/\/+$/, "");
 
 const allowedOrigins = new Set(
   [
-    "https://frontend-mu-murex-18.vercel.app",
     "http://localhost:5173",
     env.FRONTEND_URL,
+    ...env.CORS_ORIGINS.split(","),
     ...env.FRONTEND_URLS.split(","),
   ]
     .map((origin) => normalizeOrigin(origin.trim()))
     .filter(Boolean)
 );
+
+export const allowedOriginsList = Array.from(allowedOrigins.values());
 
 const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const origin = req.headers.origin;
@@ -40,6 +42,7 @@ const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
     if (origin) {
       res.header("Access-Control-Allow-Origin", origin);
     }
+    res.header("Access-Control-Allow-Credentials", "true");
 
     if (req.method === "OPTIONS") {
       return res.sendStatus(204);
@@ -56,9 +59,17 @@ const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
 };
 
 app.use(corsMiddleware);
+app.options("*", corsMiddleware);
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Backend is running",
+  });
+});
+
+app.get("/api/health", (_req, res) => {
   res.status(200).json({
     success: true,
     message: "Backend is running",
