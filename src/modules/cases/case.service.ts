@@ -1,6 +1,6 @@
 import { db } from "../../db";
 import { cases, caseStatusHistory, customers, devices, inventoryItems, users } from "../../db/schema";
-import { eq, desc, sql, or, isNotNull } from "drizzle-orm";
+import { eq, desc, sql, or, isNotNull, isNull, and, notInArray } from "drizzle-orm";
 import { CaseStatus, CASE_STATUSES } from "./constants";
 import { validateStatusTransition, validateStatusSpecificRules } from "./cases.validation";
 
@@ -427,6 +427,10 @@ export const caseService = {
       .from(cases)
       .leftJoin(customers, eq(cases.customerId, customers.id))
       .leftJoin(devices, eq(cases.deviceId, devices.id))
+      .where(and(
+        isNull(cases.operationFinalizedAt),
+        notInArray(cases.status, [CASE_STATUSES.COMPLETED, CASE_STATUSES.DELIVERED, CASE_STATUSES.ARCHIVED])
+      ))
       .orderBy(desc(cases.createdAt));
   },
 
@@ -947,7 +951,7 @@ export const caseService = {
     return updatedCases[0];
   },
 
-  async finalizeOperation(id: number, changedBy: number): Promise<CaseRow> {
+  async finalizeOperation(id: number, changedBy: number, repairQuality?: Partial<RepairQualityInput>): Promise<CaseRow> {
     const existingCase = await this.getCaseById(id);
     if (!existingCase) {
       throw new Error("Case not found");
@@ -984,6 +988,16 @@ export const caseService = {
         .set({
           status: finalStatus,
           operationFinalizedAt: now,
+          ...(existingCase.caseData.status === CASE_STATUSES.REPAIRED && repairQuality ? {
+            postRepairCompletedWork: repairQuality.postRepairCompletedWork,
+            postRepairTested: repairQuality.postRepairTested,
+            postRepairTestCount: repairQuality.postRepairTestCount,
+            postRepairCleaned: repairQuality.postRepairCleaned,
+            postRepairRecommendations: repairQuality.postRepairRecommendations,
+            postRepairImages: repairQuality.postRepairImages,
+            postRepairDamagedPartImages: repairQuality.postRepairDamagedPartImages,
+            postRepairNote: repairQuality.postRepairNote,
+          } : {}),
           updatedAt: now,
         })
         .where(eq(cases.id, id))

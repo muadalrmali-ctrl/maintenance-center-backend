@@ -14,11 +14,11 @@ export const createDirectInvoiceSchema = z.object({
   tax: z.number().min(0).optional().default(0),
   notes: z.string().optional(),
   items: z.array(z.object({
-    name: z.string().min(1),
+    name: z.string().optional(),
     description: z.string().optional(),
     quantity: z.number().int().positive(),
-    unitPrice: z.number().min(0),
-    referenceId: z.number().int().positive().optional(),
+    unitPrice: z.number().min(0).optional(),
+    referenceId: z.number().int().positive(),
   })).min(1),
 }).refine((data) => data.customerId || data.directCustomerName, {
   message: "customerId or directCustomerName is required",

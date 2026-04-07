@@ -586,7 +586,7 @@ export const caseController = {
         return res.status(401).json({ success: false, message: "Unauthorized" });
       }
 
-      const caseData = await caseService.finalizeOperation(id, changedBy);
+      const caseData = await caseService.finalizeOperation(id, changedBy, req.body);
 
       return res.status(200).json({
         success: true,

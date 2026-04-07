@@ -136,14 +136,5 @@ export function validateStatusSpecificRules(
   toStatus: string,
   input: { notes?: string | null; executionDueAt?: Date | null; finalResult?: string | null },
 ): StatusValidationResult {
-  if (toStatus === CASE_STATUSES.NOT_REPAIRABLE) {
-    if (!input.notes && !input.finalResult) {
-      return {
-        valid: false,
-        error: "notes or finalResult is required when moving to not_repairable",
-      };
-    }
-  }
-
   return { valid: true };
 }

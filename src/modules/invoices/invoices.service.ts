@@ -1,6 +1,6 @@
 import { db } from "../../db";
-import { invoices, invoiceItems, cases, caseParts, caseServices, customers, devices } from "../../db/schema";
-import { eq, desc } from "drizzle-orm";
+import { invoices, invoiceItems, cases, caseParts, caseServices, customers, devices, inventoryItems } from "../../db/schema";
+import { eq, desc, inArray, sql } from "drizzle-orm";
 
 type CreateInvoiceInput = {
   discount?: number;
@@ -16,11 +16,11 @@ type CreateDirectInvoiceInput = {
   tax?: number;
   notes?: string;
   items: {
-    name: string;
+    name?: string;
     description?: string;
     quantity: number;
-    unitPrice: number;
-    referenceId?: number;
+    unitPrice?: number;
+    referenceId: number;
   }[];
 };
 
@@ -159,7 +159,34 @@ export const invoicesService = {
 
   async createDirectInvoice(input: CreateDirectInvoiceInput, createdBy: number): Promise<Invoice> {
     return await db.transaction(async (tx) => {
-      const subtotal = input.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+      const inventoryIds = [...new Set(input.items.map((item) => item.referenceId))];
+      const foundInventoryItems = await tx
+        .select()
+        .from(inventoryItems)
+        .where(inArray(inventoryItems.id, inventoryIds));
+
+      const inventoryById = new Map(foundInventoryItems.map((item) => [item.id, item]));
+      const invoiceInputItems = input.items.map((item) => {
+        const inventoryItem = inventoryById.get(item.referenceId);
+        if (!inventoryItem) {
+          throw new Error("Selected inventory item was not found");
+        }
+
+        if (item.quantity > inventoryItem.quantity) {
+          throw new Error(`Insufficient stock for ${inventoryItem.name}`);
+        }
+
+        const unitPrice = item.unitPrice ?? Number(inventoryItem.sellingPrice || inventoryItem.unitCost || 0);
+
+        return {
+          ...item,
+          unitPrice,
+          name: inventoryItem.name,
+          description: item.description || inventoryItem.code,
+        };
+      });
+
+      const subtotal = invoiceInputItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
       const discount = input.discount || 0;
       const tax = input.tax || 0;
       const total = subtotal - discount + tax;
@@ -185,7 +212,7 @@ export const invoicesService = {
 
       const invoice = createdInvoices[0];
 
-      await tx.insert(invoiceItems).values(input.items.map((item) => ({
+      await tx.insert(invoiceItems).values(invoiceInputItems.map((item) => ({
         invoiceId: invoice.id,
         itemType: "direct_part",
         referenceId: item.referenceId,
@@ -195,6 +222,16 @@ export const invoicesService = {
         unitPrice: item.unitPrice.toString(),
         totalPrice: (item.quantity * item.unitPrice).toString(),
       })));
+
+      for (const item of invoiceInputItems) {
+        await tx
+          .update(inventoryItems)
+          .set({
+            quantity: sql`${inventoryItems.quantity} - ${item.quantity}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(inventoryItems.id, item.referenceId));
+      }
 
       return invoice;
     });
