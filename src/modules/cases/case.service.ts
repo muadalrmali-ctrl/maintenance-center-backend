@@ -49,6 +49,19 @@ type UpdateCaseInput = {
   latestMessage?: string | null;
   latestMessageChannel?: string | null;
   latestMessageSentAt?: Date | null;
+  postRepairCompletedWork?: string | null;
+  postRepairTested?: boolean;
+  postRepairTestCount?: number;
+  postRepairCleaned?: boolean;
+  postRepairRecommendations?: string | null;
+  postRepairImages?: string | null;
+  postRepairDamagedPartImages?: string | null;
+  postRepairNote?: string | null;
+  readyNotificationMessage?: string | null;
+  readyNotificationChannel?: string | null;
+  readyNotificationSentAt?: Date | null;
+  customerReceivedAt?: Date | null;
+  operationFinalizedAt?: Date | null;
   assignedTechnicianId?: number | null;
   executionDurationDays?: number;
   executionDurationHours?: number;
@@ -59,11 +72,15 @@ type ChangeStatusInput = {
   toStatus: CaseStatus;
   notes?: string | null;
   executionDueAt?: Date | null;
+  customerApprovalConfirmed?: boolean;
+  executionDurationDays?: number;
+  executionDurationHours?: number;
   finalResult?: string | null;
   changedBy: number;
 };
 
 type StartExecutionInput = {
+  customerApprovalConfirmed: boolean;
   durationDays: number;
   durationHours: number;
   assignedTechnicianId?: number | null;
@@ -76,6 +93,22 @@ type ExecutionActionInput = {
   latestMessage?: string | null;
   latestMessageChannel?: string | null;
   changedBy: number;
+};
+
+type RepairQualityInput = {
+  postRepairCompletedWork: string;
+  postRepairTested: boolean;
+  postRepairTestCount: number;
+  postRepairCleaned: boolean;
+  postRepairRecommendations?: string | null;
+  postRepairImages?: string | null;
+  postRepairDamagedPartImages?: string | null;
+  postRepairNote?: string | null;
+};
+
+type ReadyNotificationInput = {
+  readyNotificationMessage: string;
+  readyNotificationChannel: string;
 };
 
 type CaseRow = {
@@ -108,6 +141,19 @@ type CaseRow = {
   latestMessage: string | null;
   latestMessageChannel: string | null;
   latestMessageSentAt: Date | null;
+  postRepairCompletedWork: string | null;
+  postRepairTested: boolean;
+  postRepairTestCount: number;
+  postRepairCleaned: boolean;
+  postRepairRecommendations: string | null;
+  postRepairImages: string | null;
+  postRepairDamagedPartImages: string | null;
+  postRepairNote: string | null;
+  readyNotificationMessage: string | null;
+  readyNotificationChannel: string | null;
+  readyNotificationSentAt: Date | null;
+  customerReceivedAt: Date | null;
+  operationFinalizedAt: Date | null;
   finalResult: string | null;
   isArchived: boolean;
   createdBy: number;
@@ -192,6 +238,19 @@ const returnCaseFields = {
   latestMessage: cases.latestMessage,
   latestMessageChannel: cases.latestMessageChannel,
   latestMessageSentAt: cases.latestMessageSentAt,
+  postRepairCompletedWork: cases.postRepairCompletedWork,
+  postRepairTested: cases.postRepairTested,
+  postRepairTestCount: cases.postRepairTestCount,
+  postRepairCleaned: cases.postRepairCleaned,
+  postRepairRecommendations: cases.postRepairRecommendations,
+  postRepairImages: cases.postRepairImages,
+  postRepairDamagedPartImages: cases.postRepairDamagedPartImages,
+  postRepairNote: cases.postRepairNote,
+  readyNotificationMessage: cases.readyNotificationMessage,
+  readyNotificationChannel: cases.readyNotificationChannel,
+  readyNotificationSentAt: cases.readyNotificationSentAt,
+  customerReceivedAt: cases.customerReceivedAt,
+  operationFinalizedAt: cases.operationFinalizedAt,
   finalResult: cases.finalResult,
   isArchived: cases.isArchived,
   createdBy: cases.createdBy,
@@ -334,6 +393,19 @@ export const caseService = {
         latestMessage: cases.latestMessage,
         latestMessageChannel: cases.latestMessageChannel,
         latestMessageSentAt: cases.latestMessageSentAt,
+        postRepairCompletedWork: cases.postRepairCompletedWork,
+        postRepairTested: cases.postRepairTested,
+        postRepairTestCount: cases.postRepairTestCount,
+        postRepairCleaned: cases.postRepairCleaned,
+        postRepairRecommendations: cases.postRepairRecommendations,
+        postRepairImages: cases.postRepairImages,
+        postRepairDamagedPartImages: cases.postRepairDamagedPartImages,
+        postRepairNote: cases.postRepairNote,
+        readyNotificationMessage: cases.readyNotificationMessage,
+        readyNotificationChannel: cases.readyNotificationChannel,
+        readyNotificationSentAt: cases.readyNotificationSentAt,
+        customerReceivedAt: cases.customerReceivedAt,
+        operationFinalizedAt: cases.operationFinalizedAt,
         finalResult: cases.finalResult,
         isArchived: cases.isArchived,
         createdBy: cases.createdBy,
@@ -443,6 +515,18 @@ export const caseService = {
   },
 
   async updateCase(id: number, input: UpdateCaseInput): Promise<CaseRow | undefined> {
+    const existingCase = await this.getCaseById(id);
+    if (!existingCase) {
+      return undefined;
+    }
+
+    if (
+      existingCase.caseData.executionTimerStartedAt &&
+      (input.executionDurationDays !== undefined || input.executionDurationHours !== undefined)
+    ) {
+      throw new Error("Execution duration is locked after execution starts");
+    }
+
     const updateData: Partial<UpdateCaseInput & { updatedAt: Date }> = {
       updatedAt: new Date(),
     };
@@ -464,6 +548,19 @@ export const caseService = {
     if (input.latestMessage !== undefined) updateData.latestMessage = input.latestMessage;
     if (input.latestMessageChannel !== undefined) updateData.latestMessageChannel = input.latestMessageChannel;
     if (input.latestMessageSentAt !== undefined) updateData.latestMessageSentAt = input.latestMessageSentAt;
+    if (input.postRepairCompletedWork !== undefined) updateData.postRepairCompletedWork = input.postRepairCompletedWork;
+    if (input.postRepairTested !== undefined) updateData.postRepairTested = input.postRepairTested;
+    if (input.postRepairTestCount !== undefined) updateData.postRepairTestCount = input.postRepairTestCount;
+    if (input.postRepairCleaned !== undefined) updateData.postRepairCleaned = input.postRepairCleaned;
+    if (input.postRepairRecommendations !== undefined) updateData.postRepairRecommendations = input.postRepairRecommendations;
+    if (input.postRepairImages !== undefined) updateData.postRepairImages = input.postRepairImages;
+    if (input.postRepairDamagedPartImages !== undefined) updateData.postRepairDamagedPartImages = input.postRepairDamagedPartImages;
+    if (input.postRepairNote !== undefined) updateData.postRepairNote = input.postRepairNote;
+    if (input.readyNotificationMessage !== undefined) updateData.readyNotificationMessage = input.readyNotificationMessage;
+    if (input.readyNotificationChannel !== undefined) updateData.readyNotificationChannel = input.readyNotificationChannel;
+    if (input.readyNotificationSentAt !== undefined) updateData.readyNotificationSentAt = input.readyNotificationSentAt;
+    if (input.customerReceivedAt !== undefined) updateData.customerReceivedAt = input.customerReceivedAt;
+    if (input.operationFinalizedAt !== undefined) updateData.operationFinalizedAt = input.operationFinalizedAt;
     if (input.assignedTechnicianId !== undefined) updateData.assignedTechnicianId = input.assignedTechnicianId;
     if (input.executionDurationDays !== undefined) updateData.executionDurationDays = input.executionDurationDays;
     if (input.executionDurationHours !== undefined) updateData.executionDurationHours = input.executionDurationHours;
@@ -489,6 +586,19 @@ export const caseService = {
       throw new Error(transitionValidation.error);
     }
 
+    if (input.toStatus === CASE_STATUSES.IN_PROGRESS) {
+      const durationDays = input.executionDurationDays ?? 0;
+      const durationHours = input.executionDurationHours ?? 0;
+
+      if (!input.customerApprovalConfirmed) {
+        throw new Error("Customer approval is required before starting execution");
+      }
+
+      if (durationDays <= 0 && durationHours <= 0) {
+        throw new Error("Execution duration is required before starting execution");
+      }
+    }
+
     const ruleValidation = validateStatusSpecificRules(input.toStatus, {
       notes: input.notes,
       executionDueAt: input.toStatus === CASE_STATUSES.IN_PROGRESS ? input.executionDueAt : null,
@@ -505,8 +615,17 @@ export const caseService = {
       };
 
       if (input.toStatus === CASE_STATUSES.IN_PROGRESS) {
-        updateData.executionStartedAt = new Date();
-        updateData.executionDueAt = input.executionDueAt;
+        const startedAt = new Date();
+        updateData.executionStartedAt = startedAt;
+        updateData.executionDueAt =
+          input.executionDueAt ||
+          buildExecutionDueAt(startedAt, input.executionDurationDays ?? 0, input.executionDurationHours ?? 0);
+        updateData.executionDurationDays = input.executionDurationDays ?? 0;
+        updateData.executionDurationHours = input.executionDurationHours ?? 0;
+        updateData.executionTimerStartedAt = startedAt;
+        updateData.executionTimerPausedAt = null;
+        updateData.executionTotalPausedSeconds = 0;
+        updateData.executionCompletedAt = null;
       }
 
       if (input.toStatus === CASE_STATUSES.ARCHIVED) {
@@ -560,6 +679,14 @@ export const caseService = {
     );
     if (!transitionValidation.valid) {
       throw new Error(transitionValidation.error);
+    }
+
+    if (!input.customerApprovalConfirmed) {
+      throw new Error("Customer approval is required before starting execution");
+    }
+
+    if (input.durationDays <= 0 && input.durationHours <= 0) {
+      throw new Error("Execution duration is required before starting execution");
     }
 
     const startedAt = new Date();
@@ -724,6 +851,124 @@ export const caseService = {
         toStatus: CASE_STATUSES.REPAIRED,
         changedBy: input.changedBy,
         notes: input.notes || "Repair completed",
+      });
+
+      return updatedCases[0];
+    });
+  },
+
+  async saveRepairQuality(id: number, input: RepairQualityInput): Promise<CaseRow> {
+    const existingCase = await this.getCaseById(id);
+    if (!existingCase) {
+      throw new Error("Case not found");
+    }
+
+    if (existingCase.caseData.status !== CASE_STATUSES.REPAIRED) {
+      throw new Error("Repair quality can only be saved after repair is completed");
+    }
+
+    const updatedCases = await db
+      .update(cases)
+      .set({
+        postRepairCompletedWork: input.postRepairCompletedWork,
+        postRepairTested: input.postRepairTested,
+        postRepairTestCount: input.postRepairTestCount,
+        postRepairCleaned: input.postRepairCleaned,
+        postRepairRecommendations: input.postRepairRecommendations,
+        postRepairImages: input.postRepairImages,
+        postRepairDamagedPartImages: input.postRepairDamagedPartImages,
+        postRepairNote: input.postRepairNote,
+        updatedAt: new Date(),
+      })
+      .where(eq(cases.id, id))
+      .returning(returnCaseFields);
+
+    return updatedCases[0];
+  },
+
+  async sendReadyNotification(id: number, input: ReadyNotificationInput): Promise<CaseRow> {
+    const existingCase = await this.getCaseById(id);
+    if (!existingCase) {
+      throw new Error("Case not found");
+    }
+
+    if (existingCase.caseData.status !== CASE_STATUSES.REPAIRED) {
+      throw new Error("Ready notification can only be sent after repair is completed");
+    }
+
+    const sentAt = new Date();
+    const updatedCases = await db
+      .update(cases)
+      .set({
+        readyNotificationMessage: input.readyNotificationMessage,
+        readyNotificationChannel: input.readyNotificationChannel,
+        readyNotificationSentAt: sentAt,
+        latestMessage: input.readyNotificationMessage,
+        latestMessageChannel: input.readyNotificationChannel,
+        latestMessageSentAt: sentAt,
+        updatedAt: sentAt,
+      })
+      .where(eq(cases.id, id))
+      .returning(returnCaseFields);
+
+    return updatedCases[0];
+  },
+
+  async markCustomerReceived(id: number): Promise<CaseRow> {
+    const existingCase = await this.getCaseById(id);
+    if (!existingCase) {
+      throw new Error("Case not found");
+    }
+
+    if (existingCase.caseData.status !== CASE_STATUSES.REPAIRED) {
+      throw new Error("Customer receipt can only be marked after repair is completed");
+    }
+
+    const now = new Date();
+    const updatedCases = await db
+      .update(cases)
+      .set({
+        customerReceivedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(cases.id, id))
+      .returning(returnCaseFields);
+
+    return updatedCases[0];
+  },
+
+  async finalizeOperation(id: number, changedBy: number): Promise<CaseRow> {
+    const existingCase = await this.getCaseById(id);
+    if (!existingCase) {
+      throw new Error("Case not found");
+    }
+
+    if (existingCase.caseData.status !== CASE_STATUSES.REPAIRED) {
+      throw new Error("Only repaired cases can be finalized");
+    }
+
+    if (!existingCase.caseData.customerReceivedAt) {
+      throw new Error("Customer receipt must be marked before finalizing the operation");
+    }
+
+    const now = new Date();
+    return await db.transaction(async (tx) => {
+      const updatedCases = await tx
+        .update(cases)
+        .set({
+          status: CASE_STATUSES.COMPLETED,
+          operationFinalizedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(cases.id, id))
+        .returning(returnCaseFields);
+
+      await tx.insert(caseStatusHistory).values({
+        caseId: id,
+        fromStatus: existingCase.caseData.status,
+        toStatus: CASE_STATUSES.COMPLETED,
+        changedBy,
+        notes: "Operation finalized after customer receipt",
       });
 
       return updatedCases[0];

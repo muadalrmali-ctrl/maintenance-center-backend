@@ -19,5 +19,9 @@ router.patch("/:id/execution/start", roleMiddleware(["technician", "technician_m
 router.patch("/:id/execution/pause", roleMiddleware(["technician", "technician_manager"]), caseController.pauseExecution);
 router.patch("/:id/execution/resume", roleMiddleware(["technician", "technician_manager"]), caseController.resumeExecution);
 router.patch("/:id/execution/complete", roleMiddleware(["technician", "technician_manager"]), caseController.completeRepair);
+router.patch("/:id/repair-quality", roleMiddleware(["technician", "technician_manager"]), caseController.saveRepairQuality);
+router.patch("/:id/ready-notification", roleMiddleware(["receptionist", "technician", "technician_manager"]), caseController.sendReadyNotification);
+router.patch("/:id/customer-received", roleMiddleware(["receptionist", "technician_manager"]), caseController.markCustomerReceived);
+router.patch("/:id/finalize", roleMiddleware(["receptionist", "technician_manager"]), caseController.finalizeOperation);
 
 export default router;

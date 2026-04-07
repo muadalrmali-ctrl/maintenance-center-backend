@@ -1,6 +1,6 @@
 import { db } from "../../db";
 import { caseServices, cases } from "../../db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 type AddServiceInput = {
   serviceName: string;
@@ -75,5 +75,16 @@ export const caseServicesService = {
       .select()
       .from(caseServices)
       .where(eq(caseServices.caseId, caseId));
+  },
+
+  async removeService(caseId: number, serviceId: number): Promise<void> {
+    const deletedServices = await db
+      .delete(caseServices)
+      .where(and(eq(caseServices.id, serviceId), eq(caseServices.caseId, caseId)))
+      .returning({ id: caseServices.id, caseId: caseServices.caseId });
+
+    if (!deletedServices[0]) {
+      throw new Error("Case service not found");
+    }
   },
 };

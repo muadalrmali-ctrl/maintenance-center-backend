@@ -10,5 +10,6 @@ router.use(roleMiddleware(["store_manager", "technician", "technician_manager"])
 
 router.post("/:caseId/parts", casePartsController.addPart);
 router.get("/:caseId/parts", casePartsController.getCaseParts);
+router.delete("/:caseId/parts/:partId", casePartsController.removePart);
 
 export default router;

@@ -6,6 +6,8 @@ import {
   changeCaseStatusSchema,
   startExecutionSchema,
   executionActionSchema,
+  repairQualitySchema,
+  readyNotificationSchema,
 } from "./cases.validation";
 
 const logCaseError = (action: string, error: unknown) => {
@@ -167,6 +169,19 @@ export const caseController = {
         latestMessage: validation.data.latestMessage,
         latestMessageChannel: validation.data.latestMessageChannel,
         latestMessageSentAt: validation.data.latestMessageSentAt ? new Date(validation.data.latestMessageSentAt) : null,
+        postRepairCompletedWork: validation.data.postRepairCompletedWork,
+        postRepairTested: validation.data.postRepairTested,
+        postRepairTestCount: validation.data.postRepairTestCount,
+        postRepairCleaned: validation.data.postRepairCleaned,
+        postRepairRecommendations: validation.data.postRepairRecommendations,
+        postRepairImages: validation.data.postRepairImages,
+        postRepairDamagedPartImages: validation.data.postRepairDamagedPartImages,
+        postRepairNote: validation.data.postRepairNote,
+        readyNotificationMessage: validation.data.readyNotificationMessage,
+        readyNotificationChannel: validation.data.readyNotificationChannel,
+        readyNotificationSentAt: validation.data.readyNotificationSentAt ? new Date(validation.data.readyNotificationSentAt) : null,
+        customerReceivedAt: validation.data.customerReceivedAt ? new Date(validation.data.customerReceivedAt) : null,
+        operationFinalizedAt: validation.data.operationFinalizedAt ? new Date(validation.data.operationFinalizedAt) : null,
         assignedTechnicianId: validation.data.assignedTechnicianId,
         executionDurationDays: validation.data.executionDurationDays,
         executionDurationHours: validation.data.executionDurationHours,
@@ -228,6 +243,9 @@ export const caseController = {
         toStatus: validation.data.toStatus,
         notes: validation.data.notes ?? null,
         executionDueAt: validation.data.executionDueAt ? new Date(validation.data.executionDueAt) : null,
+        customerApprovalConfirmed: validation.data.customerApprovalConfirmed,
+        executionDurationDays: validation.data.executionDurationDays,
+        executionDurationHours: validation.data.executionDurationHours,
         finalResult: validation.data.finalResult ?? null,
         changedBy,
       });
@@ -269,6 +287,7 @@ export const caseController = {
       }
 
       const caseData = await caseService.startExecution(id, {
+        customerApprovalConfirmed: validation.data.customerApprovalConfirmed,
         durationDays: validation.data.durationDays,
         durationHours: validation.data.durationHours,
         assignedTechnicianId: validation.data.assignedTechnicianId,
@@ -411,6 +430,125 @@ export const caseController = {
       return res.status(400).json({
         success: false,
         message: error instanceof Error ? error.message : "Failed to complete repair",
+      });
+    }
+  },
+
+  async saveRepairQuality(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+      const validation = repairQualitySchema.safeParse(req.body);
+
+      if (isNaN(id)) {
+        return res.status(400).json({ success: false, message: "Invalid case ID" });
+      }
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: validation.error.issues,
+        });
+      }
+
+      const caseData = await caseService.saveRepairQuality(id, validation.data);
+
+      return res.status(200).json({
+        success: true,
+        message: "Repair quality saved successfully",
+        data: caseData,
+      });
+    } catch (error) {
+      logCaseError("saveRepairQuality", error);
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to save repair quality",
+      });
+    }
+  },
+
+  async sendReadyNotification(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+      const validation = readyNotificationSchema.safeParse(req.body);
+
+      if (isNaN(id)) {
+        return res.status(400).json({ success: false, message: "Invalid case ID" });
+      }
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: validation.error.issues,
+        });
+      }
+
+      const caseData = await caseService.sendReadyNotification(id, validation.data);
+
+      return res.status(200).json({
+        success: true,
+        message: "Ready notification saved successfully",
+        data: caseData,
+      });
+    } catch (error) {
+      logCaseError("sendReadyNotification", error);
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to send ready notification",
+      });
+    }
+  },
+
+  async markCustomerReceived(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+
+      if (isNaN(id)) {
+        return res.status(400).json({ success: false, message: "Invalid case ID" });
+      }
+
+      const caseData = await caseService.markCustomerReceived(id);
+
+      return res.status(200).json({
+        success: true,
+        message: "Customer receipt marked successfully",
+        data: caseData,
+      });
+    } catch (error) {
+      logCaseError("markCustomerReceived", error);
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to mark customer receipt",
+      });
+    }
+  },
+
+  async finalizeOperation(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+      const changedBy = getRequestUserId(req);
+
+      if (isNaN(id)) {
+        return res.status(400).json({ success: false, message: "Invalid case ID" });
+      }
+
+      if (!changedBy) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const caseData = await caseService.finalizeOperation(id, changedBy);
+
+      return res.status(200).json({
+        success: true,
+        message: "Operation finalized successfully",
+        data: caseData,
+      });
+    } catch (error) {
+      logCaseError("finalizeOperation", error);
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to finalize operation",
       });
     }
   },

@@ -75,4 +75,32 @@ export const casePartsController = {
       });
     }
   },
+
+  async removePart(req: Request, res: Response) {
+    try {
+      const caseId = parseInt(req.params.caseId as string);
+      const partId = parseInt(req.params.partId as string);
+
+      if (isNaN(caseId) || isNaN(partId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid case or part ID",
+        });
+      }
+
+      await casePartsService.removePart(caseId, partId);
+
+      return res.status(200).json({
+        success: true,
+        message: "Part removed from case successfully",
+        data: { id: partId },
+      });
+    } catch (error) {
+      console.error("[case-parts:removePart]", error instanceof Error ? error.message : error);
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to remove part",
+      });
+    }
+  },
 };

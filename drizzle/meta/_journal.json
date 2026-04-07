@@ -113,6 +113,13 @@
       "when": 1775833000000,
       "tag": "0015_case_execution_timer",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1775919000000,
+      "tag": "0016_case_repair_quality",
+      "breakpoints": true
     }
   ]
 }

@@ -75,4 +75,32 @@ export const caseServicesController = {
       });
     }
   },
+
+  async removeService(req: Request, res: Response) {
+    try {
+      const caseId = parseInt(req.params.caseId as string);
+      const serviceId = parseInt(req.params.serviceId as string);
+
+      if (isNaN(caseId) || isNaN(serviceId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid case or service ID",
+        });
+      }
+
+      await caseServicesService.removeService(caseId, serviceId);
+
+      return res.status(200).json({
+        success: true,
+        message: "Service removed from case successfully",
+        data: { id: serviceId },
+      });
+    } catch (error) {
+      console.error("[case-services:removeService]", error instanceof Error ? error.message : error);
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to remove service",
+      });
+    }
+  },
 };

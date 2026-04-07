@@ -14,5 +14,6 @@ router.post("/:caseId/services", caseServicesController.addService);
 
 // GET /cases/:caseId/services - Get all services for a case
 router.get("/:caseId/services", caseServicesController.getCaseServices);
+router.delete("/:caseId/services/:serviceId", caseServicesController.removeService);
 
 export const caseServicesRoutes = router;

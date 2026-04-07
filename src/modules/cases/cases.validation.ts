@@ -51,6 +51,19 @@ export const updateCaseSchema = z.object({
   latestMessage: z.string().optional().nullable(),
   latestMessageChannel: z.string().optional().nullable(),
   latestMessageSentAt: z.string().optional().nullable(),
+  postRepairCompletedWork: z.string().optional().nullable(),
+  postRepairTested: z.boolean().optional(),
+  postRepairTestCount: z.number().int().min(1).optional(),
+  postRepairCleaned: z.boolean().optional(),
+  postRepairRecommendations: z.string().optional().nullable(),
+  postRepairImages: z.string().max(3_000_000).optional().nullable(),
+  postRepairDamagedPartImages: z.string().max(3_000_000).optional().nullable(),
+  postRepairNote: z.string().optional().nullable(),
+  readyNotificationMessage: z.string().optional().nullable(),
+  readyNotificationChannel: z.string().optional().nullable(),
+  readyNotificationSentAt: z.string().optional().nullable(),
+  customerReceivedAt: z.string().optional().nullable(),
+  operationFinalizedAt: z.string().optional().nullable(),
   assignedTechnicianId: z.number().int().positive().optional().nullable(),
   executionDurationDays: z.number().int().min(0).optional(),
   executionDurationHours: z.number().int().min(0).max(23).optional(),
@@ -61,10 +74,14 @@ export const changeCaseStatusSchema = z.object({
   toStatus: z.nativeEnum(CASE_STATUSES),
   notes: z.string().optional().nullable(),
   executionDueAt: z.string().optional().nullable(),
+  customerApprovalConfirmed: z.boolean().optional(),
+  executionDurationDays: z.number().int().min(0).optional(),
+  executionDurationHours: z.number().int().min(0).max(23).optional(),
   finalResult: z.string().optional().nullable(),
 });
 
 export const startExecutionSchema = z.object({
+  customerApprovalConfirmed: z.boolean(),
   durationDays: z.number().int().min(0).default(0),
   durationHours: z.number().int().min(0).max(23).default(0),
   assignedTechnicianId: z.number().int().positive().optional().nullable(),
@@ -78,6 +95,22 @@ export const executionActionSchema = z.object({
   notes: z.string().optional().nullable(),
   latestMessage: z.string().optional().nullable(),
   latestMessageChannel: z.string().optional().nullable(),
+});
+
+export const repairQualitySchema = z.object({
+  postRepairCompletedWork: z.string().min(1),
+  postRepairTested: z.boolean().default(false),
+  postRepairTestCount: z.number().int().min(1).default(1),
+  postRepairCleaned: z.boolean().default(false),
+  postRepairRecommendations: z.string().optional().nullable(),
+  postRepairImages: z.string().max(3_000_000).optional().nullable(),
+  postRepairDamagedPartImages: z.string().max(3_000_000).optional().nullable(),
+  postRepairNote: z.string().optional().nullable(),
+});
+
+export const readyNotificationSchema = z.object({
+  readyNotificationMessage: z.string().min(1),
+  readyNotificationChannel: z.string().min(1),
 });
 
 type StatusValidationResult = {

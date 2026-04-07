@@ -140,4 +140,43 @@ export const casePartsService = {
       .leftJoin(inventoryItems, eq(caseParts.inventoryItemId, inventoryItems.id))
       .where(eq(caseParts.caseId, caseId));
   },
+
+  async removePart(caseId: number, partId: number): Promise<void> {
+    await db.transaction(async (tx) => {
+      const foundParts = await tx
+        .select({
+          id: caseParts.id,
+          inventoryItemId: caseParts.inventoryItemId,
+          quantity: caseParts.quantity,
+        })
+        .from(caseParts)
+        .where(and(eq(caseParts.id, partId), eq(caseParts.caseId, caseId)))
+        .limit(1);
+
+      const part = foundParts[0];
+      if (!part) {
+        throw new Error("Case part not found");
+      }
+
+      const foundItems = await tx
+        .select({ quantity: inventoryItems.quantity })
+        .from(inventoryItems)
+        .where(eq(inventoryItems.id, part.inventoryItemId))
+        .limit(1);
+
+      await tx
+        .delete(caseParts)
+        .where(and(eq(caseParts.id, partId), eq(caseParts.caseId, caseId)));
+
+      if (foundItems[0]) {
+        await tx
+          .update(inventoryItems)
+          .set({
+            quantity: foundItems[0].quantity + part.quantity,
+            updatedAt: new Date(),
+          })
+          .where(eq(inventoryItems.id, part.inventoryItemId));
+      }
+    });
+  },
 };
