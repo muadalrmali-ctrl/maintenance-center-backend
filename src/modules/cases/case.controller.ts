@@ -177,6 +177,7 @@ export const caseController = {
         postRepairImages: validation.data.postRepairImages,
         postRepairDamagedPartImages: validation.data.postRepairDamagedPartImages,
         postRepairNote: validation.data.postRepairNote,
+        notRepairableReason: validation.data.notRepairableReason,
         readyNotificationMessage: validation.data.readyNotificationMessage,
         readyNotificationChannel: validation.data.readyNotificationChannel,
         readyNotificationSentAt: validation.data.readyNotificationSentAt ? new Date(validation.data.readyNotificationSentAt) : null,
@@ -260,6 +261,54 @@ export const caseController = {
       return res.status(400).json({
         success: false,
         message: error instanceof Error ? error.message : "Failed to change status",
+      });
+    }
+  },
+
+  async getMaintenanceOperations(_req: Request, res: Response) {
+    try {
+      const operations = await caseService.getMaintenanceOperations();
+
+      return res.status(200).json({
+        success: true,
+        message: "Maintenance operations retrieved successfully",
+        data: operations,
+      });
+    } catch (error) {
+      logCaseError("getMaintenanceOperations", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve maintenance operations",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  async getMaintenanceOperationById(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+
+      if (isNaN(id)) {
+        return res.status(400).json({ success: false, message: "Invalid operation ID" });
+      }
+
+      const operation = await caseService.getMaintenanceOperationById(id);
+
+      if (!operation) {
+        return res.status(404).json({ success: false, message: "Maintenance operation not found" });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Maintenance operation retrieved successfully",
+        data: operation,
+      });
+    } catch (error) {
+      logCaseError("getMaintenanceOperationById", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve maintenance operation",
+        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   },

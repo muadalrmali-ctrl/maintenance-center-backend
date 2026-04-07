@@ -59,6 +59,7 @@ export const updateCaseSchema = z.object({
   postRepairImages: z.string().max(3_000_000).optional().nullable(),
   postRepairDamagedPartImages: z.string().max(3_000_000).optional().nullable(),
   postRepairNote: z.string().optional().nullable(),
+  notRepairableReason: z.string().optional().nullable(),
   readyNotificationMessage: z.string().optional().nullable(),
   readyNotificationChannel: z.string().optional().nullable(),
   readyNotificationSentAt: z.string().optional().nullable(),

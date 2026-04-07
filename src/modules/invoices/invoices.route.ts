@@ -15,6 +15,7 @@ caseInvoiceRouter.post("/:caseId/invoice", roleMiddleware(["receptionist"]), inv
 
 // GET /api/invoices - Get all invoices (receptionist, store_manager)
 invoicesRouter.get("/", roleMiddleware(["receptionist", "store_manager"]), invoicesController.getAllInvoices);
+invoicesRouter.post("/", roleMiddleware(["receptionist", "store_manager"]), invoicesController.createDirectInvoice);
 
 // GET /api/invoices/:id - Get invoice by ID (receptionist, store_manager)
 invoicesRouter.get("/:id", roleMiddleware(["receptionist", "store_manager"]), invoicesController.getInvoiceById);

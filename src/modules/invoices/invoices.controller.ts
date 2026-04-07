@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { invoicesService } from "./invoices.service";
-import { createInvoiceSchema, updateInvoiceStatusSchema } from "./validation";
+import { createDirectInvoiceSchema, createInvoiceSchema, updateInvoiceStatusSchema } from "./validation";
 
 export const invoicesController = {
   async createInvoice(req: Request, res: Response) {
@@ -42,6 +42,42 @@ export const invoicesController = {
       return res.status(400).json({
         success: false,
         message: error instanceof Error ? error.message : "Failed to create invoice",
+      });
+    }
+  },
+
+  async createDirectInvoice(req: Request, res: Response) {
+    try {
+      const createdBy = req.user?.id;
+
+      if (!createdBy) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const validation = createDirectInvoiceSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: validation.error.issues,
+        });
+      }
+
+      const invoice = await invoicesService.createDirectInvoice(validation.data, createdBy);
+
+      return res.status(201).json({
+        success: true,
+        message: "Direct invoice created successfully",
+        data: invoice,
+      });
+    } catch (error) {
+      console.error("[invoices:createDirectInvoice]", error instanceof Error ? error.message : error);
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to create direct invoice",
       });
     }
   },

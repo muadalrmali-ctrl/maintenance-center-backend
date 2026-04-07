@@ -1,6 +1,6 @@
 import { db } from "../../db";
-import { customers } from "../../db/schema";
-import { eq } from "drizzle-orm";
+import { cases, customers, devices, invoices } from "../../db/schema";
+import { eq, or } from "drizzle-orm";
 
 type CreateCustomerInput = {
   name: string;
@@ -65,6 +65,49 @@ export const customerService = {
       .limit(1);
 
     return foundCustomers[0];
+  },
+
+  async getCustomerDetails(id: number): Promise<any | undefined> {
+    const customer = await this.getCustomerById(id);
+    if (!customer) return undefined;
+
+    const customerCases = await db
+      .select({
+        id: cases.id,
+        caseCode: cases.caseCode,
+        status: cases.status,
+        customerComplaint: cases.customerComplaint,
+        priority: cases.priority,
+        createdAt: cases.createdAt,
+        deviceApplianceType: devices.applianceType,
+        deviceBrand: devices.brand,
+        deviceModelName: devices.modelName,
+      })
+      .from(cases)
+      .leftJoin(devices, eq(cases.deviceId, devices.id))
+      .where(eq(cases.customerId, id));
+
+    const customerInvoices = await db
+      .select({
+        id: invoices.id,
+        caseId: invoices.caseId,
+        customerId: invoices.customerId,
+        invoiceType: invoices.invoiceType,
+        directCustomerName: invoices.directCustomerName,
+        invoiceNumber: invoices.invoiceNumber,
+        status: invoices.status,
+        total: invoices.total,
+        createdAt: invoices.createdAt,
+      })
+      .from(invoices)
+      .leftJoin(cases, eq(invoices.caseId, cases.id))
+      .where(or(eq(invoices.customerId, id), eq(cases.customerId, id)));
+
+    return {
+      customer,
+      cases: customerCases,
+      invoices: customerInvoices,
+    };
   },
 
   async updateCustomer(id: number, input: UpdateCustomerInput): Promise<Customer | undefined> {

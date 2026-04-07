@@ -1,5 +1,5 @@
 import { db } from "../../db";
-import { invoices, invoiceItems, cases, caseParts, caseServices } from "../../db/schema";
+import { invoices, invoiceItems, cases, caseParts, caseServices, customers, devices } from "../../db/schema";
 import { eq, desc } from "drizzle-orm";
 
 type CreateInvoiceInput = {
@@ -8,9 +8,29 @@ type CreateInvoiceInput = {
   notes?: string;
 };
 
+type CreateDirectInvoiceInput = {
+  customerId?: number;
+  directCustomerName?: string;
+  directCustomerPhone?: string;
+  discount?: number;
+  tax?: number;
+  notes?: string;
+  items: {
+    name: string;
+    description?: string;
+    quantity: number;
+    unitPrice: number;
+    referenceId?: number;
+  }[];
+};
+
 type Invoice = {
   id: number;
-  caseId: number;
+  caseId: number | null;
+  customerId: number | null;
+  invoiceType: string;
+  directCustomerName: string | null;
+  directCustomerPhone: string | null;
   invoiceNumber: string;
   status: string;
   subtotal: string;
@@ -91,6 +111,8 @@ export const invoicesService = {
         .insert(invoices)
         .values({
           caseId,
+          customerId: foundCase[0].customerId,
+          invoiceType: "maintenance",
           invoiceNumber,
           subtotal: subtotal.toString(),
           discount: discount.toString(),
@@ -135,10 +157,80 @@ export const invoicesService = {
     });
   },
 
+  async createDirectInvoice(input: CreateDirectInvoiceInput, createdBy: number): Promise<Invoice> {
+    return await db.transaction(async (tx) => {
+      const subtotal = input.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+      const discount = input.discount || 0;
+      const tax = input.tax || 0;
+      const total = subtotal - discount + tax;
+      const invoiceNumber = `SALE-${Date.now()}`;
+
+      const createdInvoices = await tx
+        .insert(invoices)
+        .values({
+          caseId: null,
+          customerId: input.customerId,
+          invoiceType: "direct_sale",
+          directCustomerName: input.directCustomerName,
+          directCustomerPhone: input.directCustomerPhone,
+          invoiceNumber,
+          subtotal: subtotal.toString(),
+          discount: discount.toString(),
+          tax: tax.toString(),
+          total: total.toString(),
+          notes: input.notes,
+          createdBy,
+        })
+        .returning();
+
+      const invoice = createdInvoices[0];
+
+      await tx.insert(invoiceItems).values(input.items.map((item) => ({
+        invoiceId: invoice.id,
+        itemType: "direct_part",
+        referenceId: item.referenceId,
+        name: item.name,
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice.toString(),
+        totalPrice: (item.quantity * item.unitPrice).toString(),
+      })));
+
+      return invoice;
+    });
+  },
+
   async getAllInvoices(): Promise<Invoice[]> {
     return await db
-      .select()
+      .select({
+        id: invoices.id,
+        caseId: invoices.caseId,
+        customerId: invoices.customerId,
+        invoiceType: invoices.invoiceType,
+        directCustomerName: invoices.directCustomerName,
+        directCustomerPhone: invoices.directCustomerPhone,
+        invoiceNumber: invoices.invoiceNumber,
+        status: invoices.status,
+        subtotal: invoices.subtotal,
+        discount: invoices.discount,
+        tax: invoices.tax,
+        total: invoices.total,
+        notes: invoices.notes,
+        issuedAt: invoices.issuedAt,
+        createdBy: invoices.createdBy,
+        createdAt: invoices.createdAt,
+        updatedAt: invoices.updatedAt,
+        caseCode: cases.caseCode,
+        customerName: customers.name,
+        customerPhone: customers.phone,
+        deviceApplianceType: devices.applianceType,
+        deviceBrand: devices.brand,
+        deviceModelName: devices.modelName,
+      })
       .from(invoices)
+      .leftJoin(cases, eq(invoices.caseId, cases.id))
+      .leftJoin(customers, eq(invoices.customerId, customers.id))
+      .leftJoin(devices, eq(cases.deviceId, devices.id))
       .orderBy(desc(invoices.createdAt));
   },
 

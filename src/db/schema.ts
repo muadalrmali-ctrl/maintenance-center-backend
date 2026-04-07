@@ -87,6 +87,7 @@ export const cases = pgTable("cases", {
   postRepairImages: text("post_repair_images"),
   postRepairDamagedPartImages: text("post_repair_damaged_part_images"),
   postRepairNote: text("post_repair_note"),
+  notRepairableReason: text("not_repairable_reason"),
   readyNotificationMessage: text("ready_notification_message"),
   readyNotificationChannel: text("ready_notification_channel"),
   readyNotificationSentAt: timestamp("ready_notification_sent_at"),
@@ -178,7 +179,11 @@ export const caseServices = pgTable("case_services", {
 
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
-  caseId: integer("case_id").notNull().references(() => cases.id),
+  caseId: integer("case_id").references(() => cases.id),
+  customerId: integer("customer_id").references(() => customers.id),
+  invoiceType: text("invoice_type").notNull().default("maintenance"),
+  directCustomerName: text("direct_customer_name"),
+  directCustomerPhone: text("direct_customer_phone"),
   invoiceNumber: text("invoice_number").notNull().unique(),
   status: text("status").notNull().default("draft"),
   subtotal: numeric("subtotal").notNull(),

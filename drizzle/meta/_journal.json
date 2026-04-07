@@ -120,6 +120,13 @@
       "when": 1775919000000,
       "tag": "0016_case_repair_quality",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1776005000000,
+      "tag": "0017_operations_sales_customer_details",
+      "breakpoints": true
     }
   ]
 }

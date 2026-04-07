@@ -10,6 +10,8 @@ router.use(authMiddleware);
 // Receptionist can create and manage basic case data
 router.post("/", roleMiddleware(["receptionist"]), caseController.create);
 router.get("/", roleMiddleware(["receptionist", "technician", "technician_manager"]), caseController.getAll);
+router.get("/maintenance-operations", roleMiddleware(["receptionist", "technician", "technician_manager"]), caseController.getMaintenanceOperations);
+router.get("/maintenance-operations/:id", roleMiddleware(["receptionist", "technician", "technician_manager"]), caseController.getMaintenanceOperationById);
 router.get("/:id", roleMiddleware(["receptionist", "technician", "technician_manager"]), caseController.getById);
 router.patch("/:id", roleMiddleware(["receptionist", "technician", "technician_manager"]), caseController.update);
 

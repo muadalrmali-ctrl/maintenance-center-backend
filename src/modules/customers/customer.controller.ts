@@ -95,6 +95,41 @@ export const customerController = {
     }
   },
 
+  async getDetails(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid customer ID",
+        });
+      }
+
+      const details = await customerService.getCustomerDetails(id);
+
+      if (!details) {
+        return res.status(404).json({
+          success: false,
+          message: "Customer not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Customer details retrieved successfully",
+        data: details,
+      });
+    } catch (error) {
+      console.error("[customers:getDetails]", error instanceof Error ? error.message : error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve customer details",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
   async update(req: Request, res: Response) {
     try {
       const id = parseInt(req.params.id as string);

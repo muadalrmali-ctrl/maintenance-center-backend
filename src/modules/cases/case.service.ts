@@ -1,6 +1,6 @@
 import { db } from "../../db";
 import { cases, caseStatusHistory, customers, devices, inventoryItems, users } from "../../db/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, or, isNotNull } from "drizzle-orm";
 import { CaseStatus, CASE_STATUSES } from "./constants";
 import { validateStatusTransition, validateStatusSpecificRules } from "./cases.validation";
 
@@ -57,6 +57,7 @@ type UpdateCaseInput = {
   postRepairImages?: string | null;
   postRepairDamagedPartImages?: string | null;
   postRepairNote?: string | null;
+  notRepairableReason?: string | null;
   readyNotificationMessage?: string | null;
   readyNotificationChannel?: string | null;
   readyNotificationSentAt?: Date | null;
@@ -149,6 +150,7 @@ type CaseRow = {
   postRepairImages: string | null;
   postRepairDamagedPartImages: string | null;
   postRepairNote: string | null;
+  notRepairableReason: string | null;
   readyNotificationMessage: string | null;
   readyNotificationChannel: string | null;
   readyNotificationSentAt: Date | null;
@@ -246,6 +248,7 @@ const returnCaseFields = {
   postRepairImages: cases.postRepairImages,
   postRepairDamagedPartImages: cases.postRepairDamagedPartImages,
   postRepairNote: cases.postRepairNote,
+  notRepairableReason: cases.notRepairableReason,
   readyNotificationMessage: cases.readyNotificationMessage,
   readyNotificationChannel: cases.readyNotificationChannel,
   readyNotificationSentAt: cases.readyNotificationSentAt,
@@ -401,6 +404,7 @@ export const caseService = {
         postRepairImages: cases.postRepairImages,
         postRepairDamagedPartImages: cases.postRepairDamagedPartImages,
         postRepairNote: cases.postRepairNote,
+        notRepairableReason: cases.notRepairableReason,
         readyNotificationMessage: cases.readyNotificationMessage,
         readyNotificationChannel: cases.readyNotificationChannel,
         readyNotificationSentAt: cases.readyNotificationSentAt,
@@ -556,6 +560,7 @@ export const caseService = {
     if (input.postRepairImages !== undefined) updateData.postRepairImages = input.postRepairImages;
     if (input.postRepairDamagedPartImages !== undefined) updateData.postRepairDamagedPartImages = input.postRepairDamagedPartImages;
     if (input.postRepairNote !== undefined) updateData.postRepairNote = input.postRepairNote;
+    if (input.notRepairableReason !== undefined) updateData.notRepairableReason = input.notRepairableReason;
     if (input.readyNotificationMessage !== undefined) updateData.readyNotificationMessage = input.readyNotificationMessage;
     if (input.readyNotificationChannel !== undefined) updateData.readyNotificationChannel = input.readyNotificationChannel;
     if (input.readyNotificationSentAt !== undefined) updateData.readyNotificationSentAt = input.readyNotificationSentAt;
@@ -634,6 +639,11 @@ export const caseService = {
 
       if (input.finalResult !== undefined) {
         updateData.finalResult = input.finalResult;
+      }
+
+      if (input.toStatus === CASE_STATUSES.NOT_REPAIRABLE) {
+        updateData.notRepairableReason = input.finalResult || input.notes;
+        updateData.finalResult = input.finalResult || input.notes;
       }
 
       const updatedCases = await tx
@@ -943,20 +953,36 @@ export const caseService = {
       throw new Error("Case not found");
     }
 
-    if (existingCase.caseData.status !== CASE_STATUSES.REPAIRED) {
-      throw new Error("Only repaired cases can be finalized");
+    if (
+      existingCase.caseData.status !== CASE_STATUSES.REPAIRED &&
+      existingCase.caseData.status !== CASE_STATUSES.NOT_REPAIRABLE
+    ) {
+      throw new Error("Only repaired or not repairable cases can be finalized");
     }
 
-    if (!existingCase.caseData.customerReceivedAt) {
+    if (existingCase.caseData.status === CASE_STATUSES.REPAIRED && !existingCase.caseData.customerReceivedAt) {
       throw new Error("Customer receipt must be marked before finalizing the operation");
+    }
+
+    if (
+      existingCase.caseData.status === CASE_STATUSES.NOT_REPAIRABLE &&
+      !existingCase.caseData.notRepairableReason &&
+      !existingCase.caseData.finalResult
+    ) {
+      throw new Error("Not repairable reason is required before finalizing the operation");
     }
 
     const now = new Date();
     return await db.transaction(async (tx) => {
+      const finalStatus =
+        existingCase.caseData.status === CASE_STATUSES.REPAIRED
+          ? CASE_STATUSES.COMPLETED
+          : CASE_STATUSES.NOT_REPAIRABLE;
+
       const updatedCases = await tx
         .update(cases)
         .set({
-          status: CASE_STATUSES.COMPLETED,
+          status: finalStatus,
           operationFinalizedAt: now,
           updatedAt: now,
         })
@@ -966,12 +992,49 @@ export const caseService = {
       await tx.insert(caseStatusHistory).values({
         caseId: id,
         fromStatus: existingCase.caseData.status,
-        toStatus: CASE_STATUSES.COMPLETED,
+        toStatus: finalStatus,
         changedBy,
         notes: "Operation finalized after customer receipt",
       });
 
       return updatedCases[0];
     });
+  },
+
+  async getMaintenanceOperations(): Promise<any[]> {
+    return await db
+      .select({
+        id: cases.id,
+        caseCode: cases.caseCode,
+        status: cases.status,
+        finalResult: cases.finalResult,
+        notRepairableReason: cases.notRepairableReason,
+        operationFinalizedAt: cases.operationFinalizedAt,
+        executionCompletedAt: cases.executionCompletedAt,
+        postRepairCompletedWork: cases.postRepairCompletedWork,
+        customerName: customers.name,
+        customerPhone: customers.phone,
+        deviceApplianceType: devices.applianceType,
+        deviceBrand: devices.brand,
+        deviceModelName: devices.modelName,
+        technicianName: cases.technicianName,
+        assignedTechnicianId: cases.assignedTechnicianId,
+      })
+      .from(cases)
+      .leftJoin(customers, eq(cases.customerId, customers.id))
+      .leftJoin(devices, eq(cases.deviceId, devices.id))
+      .where(or(isNotNull(cases.operationFinalizedAt), eq(cases.status, CASE_STATUSES.COMPLETED)))
+      .orderBy(desc(cases.operationFinalizedAt));
+  },
+
+  async getMaintenanceOperationById(id: number): Promise<CaseDetails | undefined> {
+    const operation = await this.getCaseById(id);
+    if (!operation) return undefined;
+
+    if (!operation.caseData.operationFinalizedAt && operation.caseData.status !== CASE_STATUSES.COMPLETED) {
+      return undefined;
+    }
+
+    return operation;
   },
 };
