@@ -52,6 +52,8 @@ export const updateCaseSchema = z.object({
   latestMessageChannel: z.string().optional().nullable(),
   latestMessageSentAt: z.string().optional().nullable(),
   assignedTechnicianId: z.number().int().positive().optional().nullable(),
+  executionDurationDays: z.number().int().min(0).optional(),
+  executionDurationHours: z.number().int().min(0).max(23).optional(),
   finalResult: z.string().optional().nullable(),
 });
 
@@ -60,6 +62,22 @@ export const changeCaseStatusSchema = z.object({
   notes: z.string().optional().nullable(),
   executionDueAt: z.string().optional().nullable(),
   finalResult: z.string().optional().nullable(),
+});
+
+export const startExecutionSchema = z.object({
+  durationDays: z.number().int().min(0).default(0),
+  durationHours: z.number().int().min(0).max(23).default(0),
+  assignedTechnicianId: z.number().int().positive().optional().nullable(),
+  notes: z.string().optional().nullable(),
+}).refine((data) => data.durationDays > 0 || data.durationHours > 0, {
+  message: "Execution duration must be greater than zero",
+  path: ["durationDays"],
+});
+
+export const executionActionSchema = z.object({
+  notes: z.string().optional().nullable(),
+  latestMessage: z.string().optional().nullable(),
+  latestMessageChannel: z.string().optional().nullable(),
 });
 
 type StatusValidationResult = {

@@ -50,6 +50,8 @@ type UpdateCaseInput = {
   latestMessageChannel?: string | null;
   latestMessageSentAt?: Date | null;
   assignedTechnicianId?: number | null;
+  executionDurationDays?: number;
+  executionDurationHours?: number;
   finalResult?: string | null;
 };
 
@@ -58,6 +60,21 @@ type ChangeStatusInput = {
   notes?: string | null;
   executionDueAt?: Date | null;
   finalResult?: string | null;
+  changedBy: number;
+};
+
+type StartExecutionInput = {
+  durationDays: number;
+  durationHours: number;
+  assignedTechnicianId?: number | null;
+  notes?: string | null;
+  changedBy: number;
+};
+
+type ExecutionActionInput = {
+  notes?: string | null;
+  latestMessage?: string | null;
+  latestMessageChannel?: string | null;
   changedBy: number;
 };
 
@@ -76,6 +93,12 @@ type CaseRow = {
   deliveryDueAt: Date | null;
   executionStartedAt: Date | null;
   executionDueAt: Date | null;
+  executionDurationDays: number;
+  executionDurationHours: number;
+  executionTimerStartedAt: Date | null;
+  executionTimerPausedAt: Date | null;
+  executionTotalPausedSeconds: number;
+  executionCompletedAt: Date | null;
   waitingPartInventoryItemId: number | null;
   waitingPartName: string | null;
   waitingPartNotes: string | null;
@@ -154,6 +177,12 @@ const returnCaseFields = {
   deliveryDueAt: cases.deliveryDueAt,
   executionStartedAt: cases.executionStartedAt,
   executionDueAt: cases.executionDueAt,
+  executionDurationDays: cases.executionDurationDays,
+  executionDurationHours: cases.executionDurationHours,
+  executionTimerStartedAt: cases.executionTimerStartedAt,
+  executionTimerPausedAt: cases.executionTimerPausedAt,
+  executionTotalPausedSeconds: cases.executionTotalPausedSeconds,
+  executionCompletedAt: cases.executionCompletedAt,
   waitingPartInventoryItemId: cases.waitingPartInventoryItemId,
   waitingPartName: cases.waitingPartName,
   waitingPartNotes: cases.waitingPartNotes,
@@ -169,6 +198,16 @@ const returnCaseFields = {
   assignedTechnicianId: cases.assignedTechnicianId,
   createdAt: cases.createdAt,
   updatedAt: cases.updatedAt,
+};
+
+const secondsBetween = (from: Date, to: Date) =>
+  Math.max(0, Math.floor((to.getTime() - from.getTime()) / 1000));
+
+const buildExecutionDueAt = (startedAt: Date, days: number, hours: number) => {
+  const dueAt = new Date(startedAt);
+  dueAt.setDate(dueAt.getDate() + days);
+  dueAt.setHours(dueAt.getHours() + hours);
+  return dueAt;
 };
 
 export const caseService = {
@@ -280,6 +319,12 @@ export const caseService = {
         deliveryDueAt: cases.deliveryDueAt,
         executionStartedAt: cases.executionStartedAt,
         executionDueAt: cases.executionDueAt,
+        executionDurationDays: cases.executionDurationDays,
+        executionDurationHours: cases.executionDurationHours,
+        executionTimerStartedAt: cases.executionTimerStartedAt,
+        executionTimerPausedAt: cases.executionTimerPausedAt,
+        executionTotalPausedSeconds: cases.executionTotalPausedSeconds,
+        executionCompletedAt: cases.executionCompletedAt,
         waitingPartInventoryItemId: cases.waitingPartInventoryItemId,
         waitingPartName: cases.waitingPartName,
         waitingPartNotes: cases.waitingPartNotes,
@@ -420,6 +465,8 @@ export const caseService = {
     if (input.latestMessageChannel !== undefined) updateData.latestMessageChannel = input.latestMessageChannel;
     if (input.latestMessageSentAt !== undefined) updateData.latestMessageSentAt = input.latestMessageSentAt;
     if (input.assignedTechnicianId !== undefined) updateData.assignedTechnicianId = input.assignedTechnicianId;
+    if (input.executionDurationDays !== undefined) updateData.executionDurationDays = input.executionDurationDays;
+    if (input.executionDurationHours !== undefined) updateData.executionDurationHours = input.executionDurationHours;
     if (input.finalResult !== undefined) updateData.finalResult = input.finalResult;
 
     const updatedCases = await db
@@ -498,6 +545,188 @@ export const caseService = {
         });
 
       return { case: updatedCase, history: historyRecords[0] };
+    });
+  },
+
+  async startExecution(id: number, input: StartExecutionInput): Promise<CaseRow> {
+    const existingCase = await this.getCaseById(id);
+    if (!existingCase) {
+      throw new Error("Case not found");
+    }
+
+    const transitionValidation = validateStatusTransition(
+      existingCase.caseData.status as CaseStatus,
+      CASE_STATUSES.IN_PROGRESS
+    );
+    if (!transitionValidation.valid) {
+      throw new Error(transitionValidation.error);
+    }
+
+    const startedAt = new Date();
+    const dueAt = buildExecutionDueAt(startedAt, input.durationDays, input.durationHours);
+
+    return await db.transaction(async (tx) => {
+      const updateData: any = {
+        status: CASE_STATUSES.IN_PROGRESS,
+        executionStartedAt: startedAt,
+        executionDueAt: dueAt,
+        executionDurationDays: input.durationDays,
+        executionDurationHours: input.durationHours,
+        executionTimerStartedAt: startedAt,
+        executionTimerPausedAt: null,
+        executionTotalPausedSeconds: 0,
+        executionCompletedAt: null,
+        updatedAt: startedAt,
+      };
+
+      if (input.assignedTechnicianId !== undefined) {
+        updateData.assignedTechnicianId = input.assignedTechnicianId;
+      }
+
+      const updatedCases = await tx
+        .update(cases)
+        .set(updateData)
+        .where(eq(cases.id, id))
+        .returning(returnCaseFields);
+
+      await tx.insert(caseStatusHistory).values({
+        caseId: id,
+        fromStatus: existingCase.caseData.status,
+        toStatus: CASE_STATUSES.IN_PROGRESS,
+        changedBy: input.changedBy,
+        notes: input.notes || "Execution started after customer approval",
+      });
+
+      return updatedCases[0];
+    });
+  },
+
+  async pauseExecution(id: number, input: ExecutionActionInput): Promise<CaseRow> {
+    const existingCase = await this.getCaseById(id);
+    if (!existingCase) {
+      throw new Error("Case not found");
+    }
+
+    if (existingCase.caseData.status !== CASE_STATUSES.IN_PROGRESS) {
+      throw new Error("Execution can only be paused while the case is in progress");
+    }
+
+    if (existingCase.caseData.executionTimerPausedAt) {
+      return existingCase.caseData;
+    }
+
+    const pausedAt = new Date();
+    const updateData: any = {
+      executionTimerPausedAt: pausedAt,
+      updatedAt: pausedAt,
+    };
+
+    if (input.latestMessage !== undefined) {
+      updateData.latestMessage = input.latestMessage;
+      updateData.latestMessageChannel = input.latestMessageChannel;
+      updateData.latestMessageSentAt = pausedAt;
+    }
+
+    const updatedCases = await db
+      .update(cases)
+      .set(updateData)
+      .where(eq(cases.id, id))
+      .returning(returnCaseFields);
+
+    await db.insert(caseStatusHistory).values({
+      caseId: id,
+      fromStatus: CASE_STATUSES.IN_PROGRESS,
+      toStatus: CASE_STATUSES.IN_PROGRESS,
+      changedBy: input.changedBy,
+      notes: input.notes || "Execution paused while waiting for renewed customer approval",
+    });
+
+    return updatedCases[0];
+  },
+
+  async resumeExecution(id: number, input: ExecutionActionInput): Promise<CaseRow> {
+    const existingCase = await this.getCaseById(id);
+    if (!existingCase) {
+      throw new Error("Case not found");
+    }
+
+    if (existingCase.caseData.status !== CASE_STATUSES.IN_PROGRESS) {
+      throw new Error("Execution can only be resumed while the case is in progress");
+    }
+
+    const pausedAt = existingCase.caseData.executionTimerPausedAt;
+    if (!pausedAt) {
+      return existingCase.caseData;
+    }
+
+    const resumedAt = new Date();
+    const totalPausedSeconds =
+      existingCase.caseData.executionTotalPausedSeconds +
+      secondsBetween(pausedAt, resumedAt);
+
+    const updatedCases = await db
+      .update(cases)
+      .set({
+        executionTimerPausedAt: null,
+        executionTotalPausedSeconds: totalPausedSeconds,
+        updatedAt: resumedAt,
+      })
+      .where(eq(cases.id, id))
+      .returning(returnCaseFields);
+
+    await db.insert(caseStatusHistory).values({
+      caseId: id,
+      fromStatus: CASE_STATUSES.IN_PROGRESS,
+      toStatus: CASE_STATUSES.IN_PROGRESS,
+      changedBy: input.changedBy,
+      notes: input.notes || "Customer approved updated details; execution resumed",
+    });
+
+    return updatedCases[0];
+  },
+
+  async completeRepair(id: number, input: ExecutionActionInput): Promise<CaseRow> {
+    const existingCase = await this.getCaseById(id);
+    if (!existingCase) {
+      throw new Error("Case not found");
+    }
+
+    const transitionValidation = validateStatusTransition(
+      existingCase.caseData.status as CaseStatus,
+      CASE_STATUSES.REPAIRED
+    );
+    if (!transitionValidation.valid) {
+      throw new Error(transitionValidation.error);
+    }
+
+    const completedAt = new Date();
+    const pausedAt = existingCase.caseData.executionTimerPausedAt;
+    const totalPausedSeconds = pausedAt
+      ? existingCase.caseData.executionTotalPausedSeconds + secondsBetween(pausedAt, completedAt)
+      : existingCase.caseData.executionTotalPausedSeconds;
+
+    return await db.transaction(async (tx) => {
+      const updatedCases = await tx
+        .update(cases)
+        .set({
+          status: CASE_STATUSES.REPAIRED,
+          executionTimerPausedAt: null,
+          executionTotalPausedSeconds: totalPausedSeconds,
+          executionCompletedAt: completedAt,
+          updatedAt: completedAt,
+        })
+        .where(eq(cases.id, id))
+        .returning(returnCaseFields);
+
+      await tx.insert(caseStatusHistory).values({
+        caseId: id,
+        fromStatus: existingCase.caseData.status,
+        toStatus: CASE_STATUSES.REPAIRED,
+        changedBy: input.changedBy,
+        notes: input.notes || "Repair completed",
+      });
+
+      return updatedCases[0];
     });
   },
 };

@@ -1,12 +1,24 @@
 import { Request, Response } from "express";
 import { caseService } from "./case.service";
-import { createCaseSchema, updateCaseSchema, changeCaseStatusSchema } from "./cases.validation";
+import {
+  createCaseSchema,
+  updateCaseSchema,
+  changeCaseStatusSchema,
+  startExecutionSchema,
+  executionActionSchema,
+} from "./cases.validation";
 
 const logCaseError = (action: string, error: unknown) => {
   console.error(
     `[cases:${action}]`,
     error instanceof Error ? error.message : error
   );
+};
+
+const getRequestUserId = (req: Request) => {
+  const rawUserId = req.user?.id ?? (req.user as any)?.sub;
+  const userId = typeof rawUserId === "string" ? Number(rawUserId) : rawUserId;
+  return userId && !Number.isNaN(userId) ? userId : null;
 };
 
 export const caseController = {
@@ -156,6 +168,8 @@ export const caseController = {
         latestMessageChannel: validation.data.latestMessageChannel,
         latestMessageSentAt: validation.data.latestMessageSentAt ? new Date(validation.data.latestMessageSentAt) : null,
         assignedTechnicianId: validation.data.assignedTechnicianId,
+        executionDurationDays: validation.data.executionDurationDays,
+        executionDurationHours: validation.data.executionDurationHours,
         finalResult: validation.data.finalResult,
       });
 
@@ -228,6 +242,175 @@ export const caseController = {
       return res.status(400).json({
         success: false,
         message: error instanceof Error ? error.message : "Failed to change status",
+      });
+    }
+  },
+
+  async startExecution(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+      const validation = startExecutionSchema.safeParse(req.body);
+      const changedBy = getRequestUserId(req);
+
+      if (isNaN(id)) {
+        return res.status(400).json({ success: false, message: "Invalid case ID" });
+      }
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: validation.error.issues,
+        });
+      }
+
+      if (!changedBy) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const caseData = await caseService.startExecution(id, {
+        durationDays: validation.data.durationDays,
+        durationHours: validation.data.durationHours,
+        assignedTechnicianId: validation.data.assignedTechnicianId,
+        notes: validation.data.notes ?? null,
+        changedBy,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Execution started successfully",
+        data: caseData,
+      });
+    } catch (error) {
+      logCaseError("startExecution", error);
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to start execution",
+      });
+    }
+  },
+
+  async pauseExecution(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+      const validation = executionActionSchema.safeParse(req.body);
+      const changedBy = getRequestUserId(req);
+
+      if (isNaN(id)) {
+        return res.status(400).json({ success: false, message: "Invalid case ID" });
+      }
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: validation.error.issues,
+        });
+      }
+
+      if (!changedBy) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const caseData = await caseService.pauseExecution(id, {
+        notes: validation.data.notes ?? null,
+        latestMessage: validation.data.latestMessage ?? null,
+        latestMessageChannel: validation.data.latestMessageChannel ?? null,
+        changedBy,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Execution paused successfully",
+        data: caseData,
+      });
+    } catch (error) {
+      logCaseError("pauseExecution", error);
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to pause execution",
+      });
+    }
+  },
+
+  async resumeExecution(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+      const validation = executionActionSchema.safeParse(req.body);
+      const changedBy = getRequestUserId(req);
+
+      if (isNaN(id)) {
+        return res.status(400).json({ success: false, message: "Invalid case ID" });
+      }
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: validation.error.issues,
+        });
+      }
+
+      if (!changedBy) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const caseData = await caseService.resumeExecution(id, {
+        notes: validation.data.notes ?? null,
+        changedBy,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Execution resumed successfully",
+        data: caseData,
+      });
+    } catch (error) {
+      logCaseError("resumeExecution", error);
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to resume execution",
+      });
+    }
+  },
+
+  async completeRepair(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+      const validation = executionActionSchema.safeParse(req.body);
+      const changedBy = getRequestUserId(req);
+
+      if (isNaN(id)) {
+        return res.status(400).json({ success: false, message: "Invalid case ID" });
+      }
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: validation.error.issues,
+        });
+      }
+
+      if (!changedBy) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const caseData = await caseService.completeRepair(id, {
+        notes: validation.data.notes ?? null,
+        changedBy,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Repair completed successfully",
+        data: caseData,
+      });
+    } catch (error) {
+      logCaseError("completeRepair", error);
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to complete repair",
       });
     }
   },

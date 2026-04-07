@@ -15,5 +15,9 @@ router.patch("/:id", roleMiddleware(["receptionist", "technician", "technician_m
 
 // Technician and Technician Manager can change status
 router.patch("/:id/status", roleMiddleware(["technician", "technician_manager"]), caseController.changeStatus);
+router.patch("/:id/execution/start", roleMiddleware(["technician", "technician_manager"]), caseController.startExecution);
+router.patch("/:id/execution/pause", roleMiddleware(["technician", "technician_manager"]), caseController.pauseExecution);
+router.patch("/:id/execution/resume", roleMiddleware(["technician", "technician_manager"]), caseController.resumeExecution);
+router.patch("/:id/execution/complete", roleMiddleware(["technician", "technician_manager"]), caseController.completeRepair);
 
 export default router;
