@@ -107,6 +107,11 @@ type RepairQualityInput = {
   postRepairNote?: string | null;
 };
 
+type FinalizeOperationInput = Partial<RepairQualityInput> & {
+  notRepairableReason?: string | null;
+  finalResult?: string | null;
+};
+
 type ReadyNotificationInput = {
   readyNotificationMessage: string;
   readyNotificationChannel: string;
@@ -951,7 +956,7 @@ export const caseService = {
     return updatedCases[0];
   },
 
-  async finalizeOperation(id: number, changedBy: number, repairQuality?: Partial<RepairQualityInput>): Promise<CaseRow> {
+  async finalizeOperation(id: number, changedBy: number, input?: FinalizeOperationInput): Promise<CaseRow> {
     const existingCase = await this.getCaseById(id);
     if (!existingCase) {
       throw new Error("Case not found");
@@ -968,11 +973,13 @@ export const caseService = {
       throw new Error("Customer receipt must be marked before finalizing the operation");
     }
 
-    if (
-      existingCase.caseData.status === CASE_STATUSES.NOT_REPAIRABLE &&
-      !existingCase.caseData.notRepairableReason &&
-      !existingCase.caseData.finalResult
-    ) {
+    const notRepairableReason =
+      input?.notRepairableReason?.trim() ||
+      input?.finalResult?.trim() ||
+      existingCase.caseData.notRepairableReason ||
+      existingCase.caseData.finalResult;
+
+    if (existingCase.caseData.status === CASE_STATUSES.NOT_REPAIRABLE && !notRepairableReason) {
       throw new Error("Not repairable reason is required before finalizing the operation");
     }
 
@@ -988,15 +995,19 @@ export const caseService = {
         .set({
           status: finalStatus,
           operationFinalizedAt: now,
-          ...(existingCase.caseData.status === CASE_STATUSES.REPAIRED && repairQuality ? {
-            postRepairCompletedWork: repairQuality.postRepairCompletedWork,
-            postRepairTested: repairQuality.postRepairTested,
-            postRepairTestCount: repairQuality.postRepairTestCount,
-            postRepairCleaned: repairQuality.postRepairCleaned,
-            postRepairRecommendations: repairQuality.postRepairRecommendations,
-            postRepairImages: repairQuality.postRepairImages,
-            postRepairDamagedPartImages: repairQuality.postRepairDamagedPartImages,
-            postRepairNote: repairQuality.postRepairNote,
+          ...(existingCase.caseData.status === CASE_STATUSES.REPAIRED && input ? {
+            postRepairCompletedWork: input.postRepairCompletedWork,
+            postRepairTested: input.postRepairTested,
+            postRepairTestCount: input.postRepairTestCount,
+            postRepairCleaned: input.postRepairCleaned,
+            postRepairRecommendations: input.postRepairRecommendations,
+            postRepairImages: input.postRepairImages,
+            postRepairDamagedPartImages: input.postRepairDamagedPartImages,
+            postRepairNote: input.postRepairNote,
+          } : {}),
+          ...(existingCase.caseData.status === CASE_STATUSES.NOT_REPAIRABLE ? {
+            notRepairableReason,
+            finalResult: notRepairableReason,
           } : {}),
           updatedAt: now,
         })
