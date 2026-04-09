@@ -12,7 +12,7 @@ router.use(authMiddleware);
 router.post("/", roleMiddleware(["admin"]), notificationsController.createNotification);
 router.post(
   "/send-customer-message",
-  roleMiddleware(["admin", "receptionist", "technician_manager"]),
+  roleMiddleware(["admin", "receptionist", "technician_manager", "technician"]),
   notificationsController.sendCustomerMessage
 );
 
