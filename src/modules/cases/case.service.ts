@@ -3,6 +3,8 @@ import { cases, caseStatusHistory, customers, devices, inventoryItems, users } f
 import { eq, desc, sql, or, isNotNull, isNull, and, notInArray } from "drizzle-orm";
 import { CaseStatus, CASE_STATUSES } from "./constants";
 import { validateStatusTransition, validateStatusSpecificRules } from "./cases.validation";
+import { notificationsService } from "../notifications/notifications.service";
+import { buildCaseReadyMessage } from "../notifications/notifications.templates";
 
 type CreateCaseInput = {
   customerId?: number;
@@ -916,19 +918,44 @@ export const caseService = {
     }
 
     const sentAt = new Date();
+    const messageBody =
+      input.readyNotificationMessage ||
+      buildCaseReadyMessage(
+        existingCase.customer?.name || "عميلنا",
+        existingCase.caseData.caseCode,
+      );
+
     const updatedCases = await db
       .update(cases)
       .set({
-        readyNotificationMessage: input.readyNotificationMessage,
+        readyNotificationMessage: messageBody,
         readyNotificationChannel: input.readyNotificationChannel,
         readyNotificationSentAt: sentAt,
-        latestMessage: input.readyNotificationMessage,
+        latestMessage: messageBody,
         latestMessageChannel: input.readyNotificationChannel,
         latestMessageSentAt: sentAt,
         updatedAt: sentAt,
       })
       .where(eq(cases.id, id))
       .returning(returnCaseFields);
+
+    if (existingCase.customer?.phone) {
+      notificationsService
+        .sendCustomerMessageToN8n({
+          caseId: existingCase.caseData.caseCode,
+          customerName: existingCase.customer.name,
+          customerPhone: existingCase.customer.phone,
+          messageBody,
+          channel: input.readyNotificationChannel.toLowerCase() as "whatsapp" | "sms" | "email",
+          type: "ready",
+        })
+        .catch((error) => {
+          console.error(
+            "[cases:sendReadyNotification:side-effect]",
+            error instanceof Error ? error.message : error,
+          );
+        });
+    }
 
     return updatedCases[0];
   },

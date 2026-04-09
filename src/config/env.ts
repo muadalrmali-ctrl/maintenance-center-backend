@@ -12,4 +12,6 @@ export const env = {
   FRONTEND_URL: process.env.FRONTEND_URL || "",
   FRONTEND_URLS: process.env.FRONTEND_URLS || "",
   CORS_ORIGINS: process.env.CORS_ORIGINS || "",
+  N8N_WEBHOOK_URL: process.env.N8N_WEBHOOK_URL || "",
+  N8N_WEBHOOK_TOKEN: process.env.N8N_WEBHOOK_TOKEN || "",
 };

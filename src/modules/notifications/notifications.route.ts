@@ -10,6 +10,11 @@ router.use(authMiddleware);
 
 // POST /api/notifications - Create notification log (admin)
 router.post("/", roleMiddleware(["admin"]), notificationsController.createNotification);
+router.post(
+  "/send-customer-message",
+  roleMiddleware(["admin", "receptionist", "technician_manager"]),
+  notificationsController.sendCustomerMessage
+);
 
 // GET /api/notifications - Get all notifications (all roles can read)
 router.get("/", roleMiddleware(["admin", "receptionist", "technician", "store_manager", "technician_manager"]), notificationsController.getAllNotifications);
