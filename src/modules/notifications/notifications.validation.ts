@@ -15,4 +15,5 @@ export const sendCustomerMessageSchema = z.object({
   messageBody: z.string().min(1),
   channel: z.enum(["whatsapp", "sms", "email"]).optional().default("whatsapp"),
   type: z.enum(["diagnosis", "ready", "invoice", "status_update", "custom"]).optional().default("custom"),
+  mediaUrls: z.array(z.string().url()).max(5).optional(),
 });

@@ -117,6 +117,7 @@ type FinalizeOperationInput = Partial<RepairQualityInput> & {
 type ReadyNotificationInput = {
   readyNotificationMessage: string;
   readyNotificationChannel: string;
+  mediaUrls?: string[];
 };
 
 type CaseRow = {
@@ -948,6 +949,7 @@ export const caseService = {
           messageBody,
           channel: input.readyNotificationChannel.toLowerCase() as "whatsapp" | "sms" | "email",
           type: "ready",
+          mediaUrls: input.mediaUrls,
         })
         .catch((error) => {
           console.error(

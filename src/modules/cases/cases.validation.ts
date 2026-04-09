@@ -112,6 +112,7 @@ export const repairQualitySchema = z.object({
 export const readyNotificationSchema = z.object({
   readyNotificationMessage: z.string().min(1),
   readyNotificationChannel: z.string().min(1),
+  mediaUrls: z.array(z.string().url()).max(5).optional(),
 });
 
 type StatusValidationResult = {

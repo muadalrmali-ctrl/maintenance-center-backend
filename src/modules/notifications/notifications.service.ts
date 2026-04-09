@@ -32,6 +32,7 @@ export type SendCustomerMessageInput = {
   messageBody: string;
   channel?: CustomerMessageChannel;
   type?: CustomerMessageType;
+  mediaUrls?: string[];
 };
 
 const N8N_TIMEOUT_MS = 10_000;
@@ -109,6 +110,13 @@ export const notificationsService = {
       messageBody: input.messageBody.trim(),
       channel: input.channel ?? "whatsapp",
       type: input.type ?? "custom",
+      ...(input.mediaUrls?.length
+        ? {
+            mediaUrls: input.mediaUrls
+              .map((url) => url.trim())
+              .filter(Boolean),
+          }
+        : {}),
     };
 
     if (!payload.caseId || !payload.customerName || !payload.customerPhone || !payload.messageBody) {
