@@ -152,6 +152,7 @@ export const inventoryController = {
   async updateItem(req: Request, res: Response) {
     try {
       const id = parseInt(req.params.id as string);
+      const changedBy = req.user?.id;
 
       if (isNaN(id)) {
         return res.status(400).json({
@@ -162,7 +163,17 @@ export const inventoryController = {
 
       const validatedData = updateItemSchema.parse(req.body);
 
-      const item = await inventoryService.updateItem(id, validatedData);
+      if (!changedBy) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const item = await inventoryService.updateItem(id, {
+        ...validatedData,
+        changedBy,
+      });
 
       if (!item) {
         return res.status(404).json({
@@ -189,6 +200,48 @@ export const inventoryController = {
         success: false,
         message: "Failed to update inventory item",
         error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  async deleteItem(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+      const deletedBy = req.user?.id;
+
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid item ID",
+        });
+      }
+
+      if (!deletedBy) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const item = await inventoryService.deleteItem(id, deletedBy);
+
+      if (!item) {
+        return res.status(404).json({
+          success: false,
+          message: "Inventory item not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Inventory item archived successfully",
+        data: item,
+      });
+    } catch (error) {
+      logInventoryError("deleteItem", error);
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to archive inventory item",
       });
     }
   },

@@ -43,6 +43,7 @@ type UpdateItemInput = {
   location?: string | null;
   description?: string | null;
   isActive?: boolean;
+  changedBy?: number;
 };
 
 type Item = {
@@ -155,7 +156,8 @@ export const inventoryService = {
         updatedAt: inventoryItems.updatedAt,
       })
       .from(inventoryItems)
-      .leftJoin(inventoryCategories, eq(inventoryItems.categoryId, inventoryCategories.id));
+      .leftJoin(inventoryCategories, eq(inventoryItems.categoryId, inventoryCategories.id))
+      .where(eq(inventoryItems.isActive, true));
   },
 
   async getItemById(id: number): Promise<any | undefined> {
@@ -313,6 +315,16 @@ export const inventoryService = {
         updatedAt: inventoryItems.updatedAt,
       });
 
+    if (updatedItems[0] && input.changedBy) {
+      await db.insert(inventoryMovements).values({
+        inventoryItemId: id,
+        movementType: "item_updated",
+        quantity: 0,
+        notes: "Inventory item data updated",
+        createdBy: input.changedBy,
+      });
+    }
+
     return updatedItems[0];
   },
 
@@ -360,6 +372,49 @@ export const inventoryService = {
       quantity: input.quantity,
       notes: input.notes,
       createdBy: input.createdBy,
+    });
+
+    return updatedItems[0];
+  },
+
+  async deleteItem(id: number, deletedBy: number): Promise<Item | undefined> {
+    const item = await this.getItemById(id);
+    if (!item) {
+      throw new Error("Inventory item not found");
+    }
+
+    const updatedItems = await db
+      .update(inventoryItems)
+      .set({
+        isActive: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(inventoryItems.id, id))
+      .returning({
+        id: inventoryItems.id,
+        name: inventoryItems.name,
+        code: inventoryItems.code,
+        categoryId: inventoryItems.categoryId,
+        brand: inventoryItems.brand,
+        model: inventoryItems.model,
+        quantity: inventoryItems.quantity,
+        minimumStock: inventoryItems.minimumStock,
+        unitCost: inventoryItems.unitCost,
+        sellingPrice: inventoryItems.sellingPrice,
+        imageUrl: inventoryItems.imageUrl,
+        location: inventoryItems.location,
+        description: inventoryItems.description,
+        isActive: inventoryItems.isActive,
+        createdAt: inventoryItems.createdAt,
+        updatedAt: inventoryItems.updatedAt,
+      });
+
+    await db.insert(inventoryMovements).values({
+      inventoryItemId: id,
+      movementType: "item_archived",
+      quantity: 0,
+      notes: "Inventory item archived",
+      createdBy: deletedBy,
     });
 
     return updatedItems[0];

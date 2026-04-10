@@ -18,5 +18,6 @@ router.get("/items", inventoryController.getItems);
 router.get("/items/:id", inventoryController.getItemById);
 router.patch("/items/:id", inventoryController.updateItem);
 router.post("/items/:id/adjust", inventoryController.adjustStock);
+router.delete("/items/:id", inventoryController.deleteItem);
 
 export default router;
