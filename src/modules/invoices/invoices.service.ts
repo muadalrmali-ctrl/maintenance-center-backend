@@ -1,5 +1,5 @@
 import { db } from "../../db";
-import { invoices, invoiceItems, cases, caseParts, caseServices, customers, devices, inventoryItems } from "../../db/schema";
+import { invoices, invoiceItems, cases, caseParts, caseServices, customers, devices, inventoryItems, inventoryMovements } from "../../db/schema";
 import { eq, desc, inArray, sql } from "drizzle-orm";
 
 type CreateInvoiceInput = {
@@ -231,6 +231,16 @@ export const invoicesService = {
             updatedAt: new Date(),
           })
           .where(eq(inventoryItems.id, item.referenceId));
+
+        await tx.insert(inventoryMovements).values({
+          inventoryItemId: item.referenceId,
+          movementType: "sold_direct",
+          quantity: -item.quantity,
+          referenceType: "invoice",
+          referenceId: invoice.id,
+          notes: `Direct sale via invoice ${invoice.invoiceNumber}`,
+          createdBy,
+        });
       }
 
       return invoice;
