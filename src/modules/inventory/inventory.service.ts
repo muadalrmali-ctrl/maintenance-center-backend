@@ -61,6 +61,8 @@ type Item = {
   location: string | null;
   description: string | null;
   isActive: boolean;
+  warehouseQuantity?: number;
+  totalQuantity?: number;
   createdAt: Date | null;
   updatedAt: Date | null;
   categoryName?: string | null;
@@ -135,7 +137,7 @@ export const inventoryService = {
   },
 
   async getItems(): Promise<Item[]> {
-    return await db
+    const items = await db
       .select({
         id: inventoryItems.id,
         name: inventoryItems.name,
@@ -158,6 +160,33 @@ export const inventoryService = {
       .from(inventoryItems)
       .leftJoin(inventoryCategories, eq(inventoryItems.categoryId, inventoryCategories.id))
       .where(eq(inventoryItems.isActive, true));
+
+    const allocationsResult = await db.execute(sql`
+      select
+        cp.inventory_item_id as "inventoryItemId",
+        sum(cp.quantity)::int as quantity
+      from case_parts cp
+      where cp.handoff_status in ('delivered', 'received')
+      group by cp.inventory_item_id
+    `);
+
+    const allocationByItemId = new Map<number, number>(
+      (allocationsResult.rows as Array<{ inventoryItemId: number; quantity: number }>).map((row) => [
+        Number(row.inventoryItemId),
+        Number(row.quantity || 0),
+      ])
+    );
+
+    return items.map((item) => {
+      const warehouseQuantity = Number(item.quantity || 0);
+      const allocatedQuantity = allocationByItemId.get(item.id) || 0;
+
+      return {
+        ...item,
+        warehouseQuantity,
+        totalQuantity: warehouseQuantity + allocatedQuantity,
+      };
+    });
   },
 
   async getItemById(id: number): Promise<any | undefined> {
@@ -212,7 +241,7 @@ export const inventoryService = {
         ii.reference_id as "inventoryItemId",
         ii.quantity,
         i.invoice_number as "invoiceNumber",
-        i.created_at as "happenedAt",
+        coalesce(i.confirmed_at, i.issued_at, i.created_at) as "happenedAt",
         coalesce(cu.name, i.direct_customer_name) as "customerName",
         'direct_sale' as source
       from invoice_items ii
@@ -220,7 +249,8 @@ export const inventoryService = {
       left join customers cu on cu.id = i.customer_id
       where ii.item_type = 'direct_part'
         and ii.reference_id = ${id}
-      order by i.created_at desc
+        and i.status = 'paid'
+      order by coalesce(i.confirmed_at, i.issued_at, i.created_at) desc
     `);
 
     const consumedInCasesResult = await db.execute(sql`
@@ -267,6 +297,7 @@ export const inventoryService = {
 
     return {
       ...item,
+      totalQuantity: Number(item.quantity || 0) + (caseAllocationsResult.rows as any[]).reduce((sum, row) => sum + Number(row.quantity || 0), 0),
       warehouseQuantity: item.quantity,
       caseAllocations: caseAllocationsResult.rows,
       salesHistory,
