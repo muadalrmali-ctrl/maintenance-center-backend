@@ -9,8 +9,8 @@ router.use(authMiddleware);
 
 router.get("/:caseId/parts", roleMiddleware(["receptionist", "store_manager", "technician", "technician_manager"]), casePartsController.getCaseParts);
 router.post("/:caseId/parts", roleMiddleware(["store_manager", "technician", "technician_manager"]), casePartsController.addPart);
-router.patch("/:caseId/parts/:partId/deliver", roleMiddleware(["store_manager"]), casePartsController.deliverPart);
-router.patch("/:caseId/parts/:partId/receive", roleMiddleware(["technician", "technician_manager"]), casePartsController.receivePart);
+router.patch("/:caseId/parts/:partId/deliver", roleMiddleware(["store_manager", "admin"]), casePartsController.deliverPart);
+router.patch("/:caseId/parts/:partId/receive", roleMiddleware(["technician", "technician_manager", "admin"]), casePartsController.receivePart);
 router.delete("/:caseId/parts/:partId", roleMiddleware(["store_manager", "technician", "technician_manager"]), casePartsController.removePart);
 
 export default router;
