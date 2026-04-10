@@ -1,6 +1,6 @@
 import { db } from "../../db";
 import { mediaAssets } from "../../db/schema";
-import { eq, desc } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 type CreateMediaInput = {
   entityType: string;
@@ -42,7 +42,7 @@ export const mediaService = {
     return await db
       .select()
       .from(mediaAssets)
-      .where(eq(mediaAssets.entityType, entityType) && eq(mediaAssets.entityId, entityId))
+      .where(and(eq(mediaAssets.entityType, entityType), eq(mediaAssets.entityId, entityId)))
       .orderBy(desc(mediaAssets.createdAt));
   },
 };
