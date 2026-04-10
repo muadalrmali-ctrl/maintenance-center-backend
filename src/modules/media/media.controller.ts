@@ -1,8 +1,44 @@
 import { Request, Response } from "express";
 import { mediaService } from "./media.service";
-import { uploadMediaSchema } from "./media.validation";
+import { uploadCaseMediaFileSchema, uploadMediaSchema } from "./media.validation";
 
 export const mediaController = {
+  async uploadCaseMediaFile(req: Request, res: Response) {
+    try {
+      const rawUploadedBy = req.user?.id ?? (req.user as any)?.sub;
+      const uploadedBy = typeof rawUploadedBy === "string" ? Number(rawUploadedBy) : rawUploadedBy;
+
+      if (!uploadedBy || Number.isNaN(uploadedBy)) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const validation = uploadCaseMediaFileSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: validation.error.issues,
+        });
+      }
+
+      const media = await mediaService.uploadCaseMediaFile(validation.data, uploadedBy);
+
+      return res.status(201).json({
+        success: true,
+        message: "Case media uploaded successfully",
+        data: media,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to upload case media",
+      });
+    }
+  },
+
   async uploadMedia(req: Request, res: Response) {
     try {
       const uploadedBy = req.user?.id;

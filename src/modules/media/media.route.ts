@@ -8,6 +8,12 @@ const router = Router();
 // All routes require authentication
 router.use(authMiddleware);
 
+router.post(
+  "/upload-case-file",
+  roleMiddleware(["admin", "receptionist", "technician", "technician_manager"]),
+  mediaController.uploadCaseMediaFile
+);
+
 // POST /api/media - Upload media (admin)
 router.post("/", roleMiddleware(["admin"]), mediaController.uploadMedia);
 
