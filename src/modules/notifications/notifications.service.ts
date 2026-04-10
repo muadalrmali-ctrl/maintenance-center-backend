@@ -23,7 +23,13 @@ type NotificationLog = {
 };
 
 export type CustomerMessageChannel = "whatsapp" | "sms" | "email";
-export type CustomerMessageType = "diagnosis" | "ready" | "invoice" | "status_update" | "custom";
+export type CustomerMessageType =
+  | "diagnosis"
+  | "ready"
+  | "ready_media_followup"
+  | "invoice"
+  | "status_update"
+  | "custom";
 
 export type SendCustomerMessageInput = {
   caseId: string;
@@ -36,6 +42,12 @@ export type SendCustomerMessageInput = {
 };
 
 const N8N_TIMEOUT_MS = 10_000;
+const SUPPORTED_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
+
+type FollowUpFailure = {
+  mediaUrl: string;
+  error: string;
+};
 
 const normalizePhoneNumber = (phone: string) => {
   const sanitized = phone
@@ -81,6 +93,26 @@ const createNotificationLog = async (input: CreateNotificationInput & { status?:
   }
 };
 
+const normalizeMediaUrls = (mediaUrls?: string[]) =>
+  (mediaUrls ?? [])
+    .map((url) => url.trim())
+    .filter(Boolean);
+
+const isPublicUrl = (value: string) => /^https?:\/\//i.test(value);
+
+const isSupportedImagePublicUrl = (value: string) => {
+  if (!isPublicUrl(value)) {
+    return false;
+  }
+
+  try {
+    const pathname = new URL(value).pathname.toLowerCase();
+    return Array.from(SUPPORTED_IMAGE_EXTENSIONS).some((extension) => pathname.endsWith(extension));
+  } catch {
+    return false;
+  }
+};
+
 export const notificationsService = {
   async createNotificationLog(input: CreateNotificationInput): Promise<NotificationLog> {
     const newLog = await db
@@ -103,6 +135,7 @@ export const notificationsService = {
       throw new Error("N8N_WEBHOOK_URL is not configured");
     }
 
+    const normalizedMediaUrls = normalizeMediaUrls(input.mediaUrls);
     const payload = {
       caseId: input.caseId.trim(),
       customerName: input.customerName.trim(),
@@ -110,17 +143,19 @@ export const notificationsService = {
       messageBody: input.messageBody.trim(),
       channel: input.channel ?? "whatsapp",
       type: input.type ?? "custom",
-      ...(input.mediaUrls?.length
+      ...(normalizedMediaUrls.length
         ? {
-            mediaUrls: input.mediaUrls
-              .map((url) => url.trim())
-              .filter(Boolean),
+            mediaUrls: normalizedMediaUrls,
           }
         : {}),
     };
 
-    if (!payload.caseId || !payload.customerName || !payload.customerPhone || !payload.messageBody) {
-      throw new Error("caseId, customerName, customerPhone, and messageBody are required");
+    if (!payload.caseId || !payload.customerName || !payload.customerPhone) {
+      throw new Error("caseId, customerName, and customerPhone are required");
+    }
+
+    if (!payload.messageBody && !payload.mediaUrls?.length) {
+      throw new Error("messageBody or mediaUrls is required");
     }
 
     const controller = new AbortController();
@@ -188,5 +223,56 @@ export const notificationsService = {
     } finally {
       clearTimeout(timeout);
     }
+  },
+
+  async sendReadyMessageWithImageFollowUps(input: SendCustomerMessageInput) {
+    if ((input.channel ?? "whatsapp") !== "whatsapp") {
+      return {
+        primaryResult: await this.sendCustomerMessageToN8n({
+          ...input,
+          type: "ready",
+        }),
+        primaryMediaUrl: normalizeMediaUrls(input.mediaUrls)[0] ?? null,
+        followUpCount: 0,
+        followUpFailures: [] as FollowUpFailure[],
+      };
+    }
+
+    const orderedImageUrls = normalizeMediaUrls(input.mediaUrls).filter(isSupportedImagePublicUrl);
+    const [firstImageUrl, ...remainingImageUrls] = orderedImageUrls;
+
+    const primaryResult = await this.sendCustomerMessageToN8n({
+      ...input,
+      type: "ready",
+      mediaUrls: firstImageUrl ? [firstImageUrl] : undefined,
+    });
+
+    const followUpFailures: FollowUpFailure[] = [];
+
+    for (const mediaUrl of remainingImageUrls) {
+      try {
+        await this.sendCustomerMessageToN8n({
+          ...input,
+          messageBody: "",
+          type: "ready_media_followup",
+          mediaUrls: [mediaUrl],
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        followUpFailures.push({ mediaUrl, error: message });
+        console.error("[notifications:ready-media-followup]", {
+          caseId: input.caseId,
+          mediaUrl,
+          error: message,
+        });
+      }
+    }
+
+    return {
+      primaryResult,
+      primaryMediaUrl: firstImageUrl ?? null,
+      followUpCount: remainingImageUrls.length,
+      followUpFailures,
+    };
   },
 };

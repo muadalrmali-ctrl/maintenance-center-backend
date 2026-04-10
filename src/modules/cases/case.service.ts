@@ -775,7 +775,6 @@ export const caseService = {
       updateData.latestMessageChannel = input.latestMessageChannel;
       updateData.latestMessageSentAt = pausedAt;
     }
-
     const updatedCases = await db
       .update(cases)
       .set(updateData)
@@ -926,6 +925,22 @@ export const caseService = {
         existingCase.caseData.caseCode,
       );
 
+    if (existingCase.customer?.phone) {
+      const notificationResult = await notificationsService.sendReadyMessageWithImageFollowUps({
+        caseId: existingCase.caseData.caseCode,
+        customerName: existingCase.customer.name,
+        customerPhone: existingCase.customer.phone,
+        messageBody,
+        channel: input.readyNotificationChannel.toLowerCase() as "whatsapp" | "sms" | "email",
+        type: "ready",
+        mediaUrls: input.mediaUrls,
+      });
+
+      if (notificationResult.followUpFailures.length) {
+        console.error("[cases:sendReadyNotification:followups]", notificationResult.followUpFailures);
+      }
+    }
+
     const updatedCases = await db
       .update(cases)
       .set({
@@ -939,25 +954,6 @@ export const caseService = {
       })
       .where(eq(cases.id, id))
       .returning(returnCaseFields);
-
-    if (existingCase.customer?.phone) {
-      notificationsService
-        .sendCustomerMessageToN8n({
-          caseId: existingCase.caseData.caseCode,
-          customerName: existingCase.customer.name,
-          customerPhone: existingCase.customer.phone,
-          messageBody,
-          channel: input.readyNotificationChannel.toLowerCase() as "whatsapp" | "sms" | "email",
-          type: "ready",
-          mediaUrls: input.mediaUrls,
-        })
-        .catch((error) => {
-          console.error(
-            "[cases:sendReadyNotification:side-effect]",
-            error instanceof Error ? error.message : error,
-          );
-        });
-    }
 
     return updatedCases[0];
   },
@@ -1092,3 +1088,5 @@ export const caseService = {
     return operation;
   },
 };
+
+
