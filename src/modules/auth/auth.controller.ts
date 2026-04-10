@@ -2,6 +2,44 @@ import { Request, Response } from "express";
 import { authService } from "./auth.service";
 
 export const authController = {
+  async getTeamMemberDetails(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+
+      if (!Number.isFinite(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid team member ID",
+        });
+      }
+
+      const member = await authService.getTeamMemberDetails(id);
+
+      if (!member) {
+        return res.status(404).json({
+          success: false,
+          message: "Team member not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Team member details retrieved successfully",
+        data: member,
+      });
+    } catch (error) {
+      console.error(
+        "[auth:getTeamMemberDetails]",
+        error instanceof Error ? error.message : error
+      );
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve team member details",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
   async getTeamMembers(req: Request, res: Response) {
     try {
       const members = await authService.getTeamMembers();
