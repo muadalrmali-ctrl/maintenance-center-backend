@@ -265,6 +265,41 @@ export const caseController = {
     }
   },
 
+  async confirmCustomerApproval(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+      const changedBy = getRequestUserId(req);
+
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid case ID",
+        });
+      }
+
+      if (!changedBy) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const caseData = await caseService.confirmCustomerApproval(id, changedBy);
+
+      return res.status(200).json({
+        success: true,
+        message: "Customer approval confirmed successfully",
+        data: caseData,
+      });
+    } catch (error) {
+      logCaseError("confirmCustomerApproval", error);
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to confirm customer approval",
+      });
+    }
+  },
+
   async getMaintenanceOperations(_req: Request, res: Response) {
     try {
       const operations = await caseService.getMaintenanceOperations();

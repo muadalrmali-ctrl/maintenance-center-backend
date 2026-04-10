@@ -80,6 +80,7 @@ export const casePartsController = {
     try {
       const caseId = parseInt(req.params.caseId as string);
       const partId = parseInt(req.params.partId as string);
+      const changedBy = req.user?.id;
 
       if (isNaN(caseId) || isNaN(partId)) {
         return res.status(400).json({
@@ -88,7 +89,14 @@ export const casePartsController = {
         });
       }
 
-      await casePartsService.removePart(caseId, partId);
+      if (!changedBy) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      await casePartsService.removePart(caseId, partId, changedBy);
 
       return res.status(200).json({
         success: true,
@@ -100,6 +108,76 @@ export const casePartsController = {
       return res.status(400).json({
         success: false,
         message: error instanceof Error ? error.message : "Failed to remove part",
+      });
+    }
+  },
+
+  async deliverPart(req: Request, res: Response) {
+    try {
+      const caseId = parseInt(req.params.caseId as string);
+      const partId = parseInt(req.params.partId as string);
+      const deliveredBy = req.user?.id;
+
+      if (isNaN(caseId) || isNaN(partId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid case or part ID",
+        });
+      }
+
+      if (!deliveredBy) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const part = await casePartsService.deliverPart(caseId, partId, deliveredBy);
+
+      return res.status(200).json({
+        success: true,
+        message: "Part delivered successfully",
+        data: part,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to deliver part",
+      });
+    }
+  },
+
+  async receivePart(req: Request, res: Response) {
+    try {
+      const caseId = parseInt(req.params.caseId as string);
+      const partId = parseInt(req.params.partId as string);
+      const receivedBy = req.user?.id;
+
+      if (isNaN(caseId) || isNaN(partId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid case or part ID",
+        });
+      }
+
+      if (!receivedBy) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const part = await casePartsService.receivePart(caseId, partId, receivedBy);
+
+      return res.status(200).json({
+        success: true,
+        message: "Part received successfully",
+        data: part,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to receive part",
       });
     }
   },

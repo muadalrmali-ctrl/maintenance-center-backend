@@ -1,6 +1,6 @@
 import { db } from "../../db";
-import { cases, caseStatusHistory, customers, devices, inventoryItems, users } from "../../db/schema";
-import { eq, desc, sql, or, isNotNull, isNull, and, notInArray } from "drizzle-orm";
+import { caseParts, cases, caseStatusHistory, customers, devices, inventoryItems, inventoryMovements, users } from "../../db/schema";
+import { eq, desc, sql, or, isNotNull, isNull, and, notInArray, inArray } from "drizzle-orm";
 import { CaseStatus, CASE_STATUSES } from "./constants";
 import { validateStatusTransition, validateStatusSpecificRules } from "./cases.validation";
 import { notificationsService } from "../notifications/notifications.service";
@@ -51,6 +51,8 @@ type UpdateCaseInput = {
   latestMessage?: string | null;
   latestMessageChannel?: string | null;
   latestMessageSentAt?: Date | null;
+  customerApprovedAt?: Date | null;
+  customerApprovedBy?: number | null;
   postRepairCompletedWork?: string | null;
   postRepairTested?: boolean;
   postRepairTestCount?: number;
@@ -150,6 +152,8 @@ type CaseRow = {
   latestMessage: string | null;
   latestMessageChannel: string | null;
   latestMessageSentAt: Date | null;
+  customerApprovedAt: Date | null;
+  customerApprovedBy: number | null;
   postRepairCompletedWork: string | null;
   postRepairTested: boolean;
   postRepairTestCount: number;
@@ -178,6 +182,8 @@ type CaseHistoryRow = {
   fromStatus: string | null;
   toStatus: string;
   changedBy: number | null;
+  actorName: string | null;
+  actorRole: string | null;
   notes: string | null;
   createdAt: Date | null;
 };
@@ -248,6 +254,8 @@ const returnCaseFields = {
   latestMessage: cases.latestMessage,
   latestMessageChannel: cases.latestMessageChannel,
   latestMessageSentAt: cases.latestMessageSentAt,
+  customerApprovedAt: cases.customerApprovedAt,
+  customerApprovedBy: cases.customerApprovedBy,
   postRepairCompletedWork: cases.postRepairCompletedWork,
   postRepairTested: cases.postRepairTested,
   postRepairTestCount: cases.postRepairTestCount,
@@ -278,6 +286,158 @@ const buildExecutionDueAt = (startedAt: Date, days: number, hours: number) => {
   dueAt.setDate(dueAt.getDate() + days);
   dueAt.setHours(dueAt.getHours() + hours);
   return dueAt;
+};
+
+const ACTIVE_CASE_PART_HANDOFF_STATUSES = ["delivered", "received"] as const;
+
+const insertCaseHistoryEvent = async (
+  tx: any,
+  input: {
+    caseId: number;
+    fromStatus?: string | null;
+    toStatus: string;
+    changedBy: number;
+    notes: string;
+  }
+) => {
+  await tx.insert(caseStatusHistory).values({
+    caseId: input.caseId,
+    fromStatus: input.fromStatus ?? input.toStatus,
+    toStatus: input.toStatus,
+    changedBy: input.changedBy,
+    notes: input.notes,
+  });
+};
+
+const ensureExecutionGateSatisfied = async (caseId: number) => {
+  const [caseRow] = await db
+    .select({
+      status: cases.status,
+      customerApprovedAt: cases.customerApprovedAt,
+    })
+    .from(cases)
+    .where(eq(cases.id, caseId))
+    .limit(1);
+
+  if (!caseRow) {
+    throw new Error("Case not found");
+  }
+
+  if (caseRow.status !== CASE_STATUSES.WAITING_APPROVAL) {
+    throw new Error("Execution can only start from waiting approval and part handoff");
+  }
+
+  if (!caseRow.customerApprovedAt) {
+    throw new Error("Customer approval must be confirmed before starting execution");
+  }
+
+  const pendingParts = await db
+    .select({
+      id: caseParts.id,
+    })
+    .from(caseParts)
+    .where(
+      and(
+        eq(caseParts.caseId, caseId),
+        notInArray(caseParts.handoffStatus, ["received", "consumed", "returned"])
+      )
+    )
+    .limit(1);
+
+  if (pendingParts.length) {
+    throw new Error("All spare parts must be delivered and received before starting execution");
+  }
+};
+
+const consumeDeliveredCaseParts = async (tx: any, caseId: number, changedBy: number, happenedAt: Date) => {
+  const partsToConsume = await tx
+    .select({
+      id: caseParts.id,
+      inventoryItemId: caseParts.inventoryItemId,
+      quantity: caseParts.quantity,
+    })
+    .from(caseParts)
+    .where(
+      and(
+        eq(caseParts.caseId, caseId),
+        inArray(caseParts.handoffStatus, ["delivered", "received"])
+      )
+    );
+
+  for (const part of partsToConsume) {
+    await tx
+      .update(caseParts)
+      .set({
+        handoffStatus: "consumed",
+        consumedAt: happenedAt,
+        consumedBy: changedBy,
+        updatedAt: happenedAt,
+      })
+      .where(eq(caseParts.id, part.id));
+
+    await tx.insert(inventoryMovements).values({
+      inventoryItemId: part.inventoryItemId,
+      movementType: "consumed_in_repair",
+      quantity: 0,
+      referenceType: "case_part",
+      referenceId: part.id,
+      notes: "Consumed in completed repair",
+      createdBy: changedBy,
+      createdAt: happenedAt,
+    });
+  }
+};
+
+const returnAllocatedCasePartsToWarehouse = async (
+  tx: any,
+  caseId: number,
+  changedBy: number,
+  happenedAt: Date
+) => {
+  const partsToReturn = await tx
+    .select({
+      id: caseParts.id,
+      inventoryItemId: caseParts.inventoryItemId,
+      quantity: caseParts.quantity,
+    })
+    .from(caseParts)
+    .where(
+      and(
+        eq(caseParts.caseId, caseId),
+        inArray(caseParts.handoffStatus, ["delivered", "received"])
+      )
+    );
+
+  for (const part of partsToReturn) {
+    await tx
+      .update(inventoryItems)
+      .set({
+        quantity: sql`${inventoryItems.quantity} + ${part.quantity}`,
+        updatedAt: happenedAt,
+      })
+      .where(eq(inventoryItems.id, part.inventoryItemId));
+
+    await tx
+      .update(caseParts)
+      .set({
+        handoffStatus: "returned",
+        returnedAt: happenedAt,
+        returnedBy: changedBy,
+        updatedAt: happenedAt,
+      })
+      .where(eq(caseParts.id, part.id));
+
+    await tx.insert(inventoryMovements).values({
+      inventoryItemId: part.inventoryItemId,
+      movementType: "returned_from_case",
+      quantity: part.quantity,
+      referenceType: "case_part",
+      referenceId: part.id,
+      notes: "Returned to warehouse after case finalization",
+      createdBy: changedBy,
+      createdAt: happenedAt,
+    });
+  }
 };
 
 export const caseService = {
@@ -479,8 +639,19 @@ export const caseService = {
       .limit(1);
 
     const history = await db
-      .select()
+      .select({
+        id: caseStatusHistory.id,
+        caseId: caseStatusHistory.caseId,
+        fromStatus: caseStatusHistory.fromStatus,
+        toStatus: caseStatusHistory.toStatus,
+        changedBy: caseStatusHistory.changedBy,
+        actorName: users.name,
+        actorRole: users.role,
+        notes: caseStatusHistory.notes,
+        createdAt: caseStatusHistory.createdAt,
+      })
       .from(caseStatusHistory)
+      .leftJoin(users, eq(caseStatusHistory.changedBy, users.id))
       .where(eq(caseStatusHistory.caseId, id))
       .orderBy(caseStatusHistory.createdAt);
 
@@ -592,6 +763,43 @@ export const caseService = {
     return updatedCases[0];
   },
 
+  async confirmCustomerApproval(id: number, changedBy: number): Promise<CaseRow> {
+    const existingCase = await this.getCaseById(id);
+    if (!existingCase) {
+      throw new Error("Case not found");
+    }
+
+    if (existingCase.caseData.status !== CASE_STATUSES.WAITING_APPROVAL) {
+      throw new Error("Customer approval can only be confirmed while waiting approval and part handoff");
+    }
+
+    const approvedAt = existingCase.caseData.customerApprovedAt ?? new Date();
+
+    return await db.transaction(async (tx) => {
+      const updatedCases = await tx
+        .update(cases)
+        .set({
+          customerApprovedAt: approvedAt,
+          customerApprovedBy: existingCase.caseData.customerApprovedBy ?? changedBy,
+          updatedAt: approvedAt,
+        })
+        .where(eq(cases.id, id))
+        .returning(returnCaseFields);
+
+      if (!existingCase.caseData.customerApprovedAt) {
+        await insertCaseHistoryEvent(tx, {
+          caseId: id,
+          fromStatus: existingCase.caseData.status,
+          toStatus: existingCase.caseData.status,
+          changedBy,
+          notes: "Customer approved repair quotation",
+        });
+      }
+
+      return updatedCases[0];
+    });
+  },
+
   async changeStatus(id: number, input: ChangeStatusInput): Promise<{ case: CaseRow; history: CaseHistoryRow } | undefined> {
     const existingCase = await this.getCaseById(id);
     if (!existingCase) {
@@ -607,13 +815,11 @@ export const caseService = {
       const durationDays = input.executionDurationDays ?? 0;
       const durationHours = input.executionDurationHours ?? 0;
 
-      if (!input.customerApprovalConfirmed) {
-        throw new Error("Customer approval is required before starting execution");
-      }
-
       if (durationDays <= 0 && durationHours <= 0) {
         throw new Error("Execution duration is required before starting execution");
       }
+
+      await ensureExecutionGateSatisfied(id);
     }
 
     const ruleValidation = validateStatusSpecificRules(input.toStatus, {
@@ -681,6 +887,8 @@ export const caseService = {
           fromStatus: caseStatusHistory.fromStatus,
           toStatus: caseStatusHistory.toStatus,
           changedBy: caseStatusHistory.changedBy,
+          actorName: sql<string | null>`null`,
+          actorRole: sql<string | null>`null`,
           notes: caseStatusHistory.notes,
           createdAt: caseStatusHistory.createdAt,
         });
@@ -703,13 +911,11 @@ export const caseService = {
       throw new Error(transitionValidation.error);
     }
 
-    if (!input.customerApprovalConfirmed) {
-      throw new Error("Customer approval is required before starting execution");
-    }
-
     if (input.durationDays <= 0 && input.durationHours <= 0) {
       throw new Error("Execution duration is required before starting execution");
     }
+
+    await ensureExecutionGateSatisfied(id);
 
     const startedAt = new Date();
     const dueAt = buildExecutionDueAt(startedAt, input.durationDays, input.durationHours);
@@ -1014,6 +1220,12 @@ export const caseService = {
         existingCase.caseData.status === CASE_STATUSES.REPAIRED
           ? CASE_STATUSES.COMPLETED
           : CASE_STATUSES.NOT_REPAIRABLE;
+
+      if (existingCase.caseData.status === CASE_STATUSES.REPAIRED) {
+        await consumeDeliveredCaseParts(tx, id, changedBy, now);
+      } else {
+        await returnAllocatedCasePartsToWarehouse(tx, id, changedBy, now);
+      }
 
       const updatedCases = await tx
         .update(cases)
