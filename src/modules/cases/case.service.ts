@@ -5,6 +5,7 @@ import { CaseStatus, CASE_STATUSES } from "./constants";
 import { validateStatusTransition, validateStatusSpecificRules } from "./cases.validation";
 import { notificationsService } from "../notifications/notifications.service";
 import { buildCaseReadyMessage } from "../notifications/notifications.templates";
+import { invoicesService } from "../invoices/invoices.service";
 
 type CreateCaseInput = {
   customerId?: number;
@@ -1258,6 +1259,10 @@ export const caseService = {
         changedBy,
         notes: "Operation finalized after customer receipt",
       });
+
+      if (existingCase.caseData.status === CASE_STATUSES.REPAIRED) {
+        await invoicesService.syncMaintenanceSaleForFinalizedCase(tx, id, changedBy, now);
+      }
 
       return updatedCases[0];
     });

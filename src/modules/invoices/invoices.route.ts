@@ -19,6 +19,7 @@ invoicesRouter.post("/", roleMiddleware(["receptionist", "store_manager"]), invo
 
 // GET /api/invoices/:id - Get invoice by ID (receptionist, store_manager)
 invoicesRouter.get("/:id", roleMiddleware(["receptionist", "store_manager"]), invoicesController.getInvoiceById);
+invoicesRouter.patch("/:id/confirm", roleMiddleware(["store_manager"]), invoicesController.confirmDirectInvoice);
 
 // PATCH /api/invoices/:id/status - Update invoice status (receptionist)
 invoicesRouter.patch("/:id/status", roleMiddleware(["receptionist"]), invoicesController.updateInvoiceStatus);

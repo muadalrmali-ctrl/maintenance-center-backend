@@ -134,6 +134,41 @@ export const invoicesController = {
     }
   },
 
+  async confirmDirectInvoice(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+      const confirmedBy = req.user?.id;
+
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid sale ID",
+        });
+      }
+
+      if (!confirmedBy) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const invoice = await invoicesService.confirmDirectInvoice(id, confirmedBy);
+
+      return res.status(200).json({
+        success: true,
+        message: "Sale confirmed successfully",
+        data: invoice,
+      });
+    } catch (error) {
+      console.error("[invoices:confirmDirectInvoice]", error instanceof Error ? error.message : error);
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to confirm sale",
+      });
+    }
+  },
+
   async updateInvoiceStatus(req: Request, res: Response) {
     try {
       const id = parseInt(req.params.id as string);
