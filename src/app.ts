@@ -14,6 +14,7 @@ import { dashboardRoutes } from "./modules/dashboard/dashboard.route";
 import { mediaRoutes } from "./modules/media/media.route";
 import { notificationsRoutes } from "./modules/notifications/notifications.route";
 import invitationRoutes from "./modules/invitations/invitation.route";
+import { reportsRoutes } from "./modules/reports/reports.route";
 
 const app = express();
 
@@ -130,5 +131,6 @@ app.use("/api/invoices", invoicesRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/media", mediaRoutes);
 app.use("/api/notifications", notificationsRoutes);
+app.use("/api/reports", reportsRoutes);
 
 export default app;
