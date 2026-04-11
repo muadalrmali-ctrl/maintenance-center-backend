@@ -8,6 +8,7 @@ import { buildCaseReadyMessage } from "../notifications/notifications.templates"
 import { invoicesService } from "../invoices/invoices.service";
 
 type CreateCaseInput = {
+  caseType?: "internal" | "external";
   customerId?: number;
   customer?: {
     name: string;
@@ -35,6 +36,7 @@ type CreateCaseInput = {
 };
 
 type UpdateCaseInput = {
+  caseType?: "internal" | "external";
   deviceId?: number;
   customerComplaint?: string;
   priority?: string;
@@ -126,6 +128,7 @@ type ReadyNotificationInput = {
 type CaseRow = {
   id: number;
   caseCode: string;
+  caseType: string;
   customerId: number;
   deviceId: number;
   status: string;
@@ -228,6 +231,7 @@ type CaseDetails = {
 const returnCaseFields = {
   id: cases.id,
   caseCode: cases.caseCode,
+  caseType: cases.caseType,
   customerId: cases.customerId,
   deviceId: cases.deviceId,
   status: cases.status,
@@ -314,6 +318,7 @@ const ensureExecutionGateSatisfied = async (caseId: number) => {
   const [caseRow] = await db
     .select({
       status: cases.status,
+      caseType: cases.caseType,
       customerApprovedAt: cases.customerApprovedAt,
     })
     .from(cases)
@@ -505,6 +510,7 @@ export const caseService = {
         .insert(cases)
         .values({
           caseCode,
+          caseType: input.caseType || "internal",
           customerId,
           deviceId,
           customerComplaint: input.customerComplaint,
@@ -526,7 +532,7 @@ export const caseService = {
         fromStatus: null,
         toStatus: CASE_STATUSES.RECEIVED,
         changedBy: input.createdBy,
-        notes: "Case created",
+        notes: `Case created as ${createdCase.caseType === "external" ? "external" : "internal"} maintenance`,
       });
 
       return createdCase;
@@ -538,6 +544,7 @@ export const caseService = {
       .select({
         id: cases.id,
         caseCode: cases.caseCode,
+        caseType: cases.caseType,
         customerId: cases.customerId,
         deviceId: cases.deviceId,
         status: cases.status,
@@ -720,6 +727,7 @@ export const caseService = {
     };
 
     if (input.deviceId !== undefined) updateData.deviceId = input.deviceId;
+    if (input.caseType !== undefined) updateData.caseType = input.caseType;
     if (input.customerComplaint !== undefined) updateData.customerComplaint = input.customerComplaint;
     if (input.priority !== undefined) updateData.priority = input.priority;
     if (input.maintenanceTeam !== undefined) updateData.maintenanceTeam = input.maintenanceTeam;

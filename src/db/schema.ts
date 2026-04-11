@@ -52,6 +52,7 @@ export const devices = pgTable("devices", {
 export const cases = pgTable("cases", {
   id: serial("id").primaryKey(),
   caseCode: text("case_code").notNull().unique(),
+  caseType: text("case_type").notNull().default("internal"),
   customerId: integer("customer_id").notNull().references(() => customers.id),
   deviceId: integer("device_id").notNull().references(() => devices.id),
   status: text("status").notNull().default("received"),

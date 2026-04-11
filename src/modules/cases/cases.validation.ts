@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ALLOWED_TRANSITIONS, CASE_STATUSES } from "./constants";
 
 export const createCaseSchema = z.object({
+  caseType: z.enum(["internal", "external"]).optional(),
   customerId: z.number().int().positive().optional(),
   customer: z.object({
     name: z.string().min(1),
@@ -34,6 +35,7 @@ export const createCaseSchema = z.object({
 });
 
 export const updateCaseSchema = z.object({
+  caseType: z.enum(["internal", "external"]).optional(),
   deviceId: z.number().int().positive().optional(),
   customerComplaint: z.string().min(1).optional(),
   priority: z.enum(["منخفضة", "متوسطة", "مرتفعة", "عاجلة", "حالة حادثة"]).optional(),

@@ -3,6 +3,35 @@ import { casePartsService } from "./case-parts.service";
 import { addPartSchema } from "./case-parts.validation";
 
 export const casePartsController = {
+  async requestPart(req: Request, res: Response) {
+    try {
+      const caseId = parseInt(req.params.caseId as string);
+      const partId = parseInt(req.params.partId as string);
+      const requestedBy = req.user?.id;
+
+      if (isNaN(caseId) || isNaN(partId)) {
+        return res.status(400).json({ success: false, message: "Invalid case or part ID" });
+      }
+
+      if (!requestedBy) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const part = await casePartsService.requestPart(caseId, partId, requestedBy);
+
+      return res.status(200).json({
+        success: true,
+        message: "Part requested successfully",
+        data: part,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to request part",
+      });
+    }
+  },
+
   async addPart(req: Request, res: Response) {
     try {
       const caseId = parseInt(req.params.caseId as string);
@@ -178,6 +207,64 @@ export const casePartsController = {
       return res.status(400).json({
         success: false,
         message: error instanceof Error ? error.message : "Failed to receive part",
+      });
+    }
+  },
+
+  async usePart(req: Request, res: Response) {
+    try {
+      const caseId = parseInt(req.params.caseId as string);
+      const partId = parseInt(req.params.partId as string);
+      const changedBy = req.user?.id;
+
+      if (isNaN(caseId) || isNaN(partId)) {
+        return res.status(400).json({ success: false, message: "Invalid case or part ID" });
+      }
+
+      if (!changedBy) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const part = await casePartsService.usePart(caseId, partId, changedBy);
+
+      return res.status(200).json({
+        success: true,
+        message: "Part marked as used successfully",
+        data: part,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to mark part as used",
+      });
+    }
+  },
+
+  async returnPart(req: Request, res: Response) {
+    try {
+      const caseId = parseInt(req.params.caseId as string);
+      const partId = parseInt(req.params.partId as string);
+      const changedBy = req.user?.id;
+
+      if (isNaN(caseId) || isNaN(partId)) {
+        return res.status(400).json({ success: false, message: "Invalid case or part ID" });
+      }
+
+      if (!changedBy) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const part = await casePartsService.returnPart(caseId, partId, changedBy);
+
+      return res.status(200).json({
+        success: true,
+        message: "Part returned successfully",
+        data: part,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to return part",
       });
     }
   },

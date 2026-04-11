@@ -45,6 +45,7 @@ export const caseController = {
       }
 
       const caseData = await caseService.createCase({
+        caseType: validation.data.caseType,
         customerId: validation.data.customerId,
         customer: validation.data.customer,
         deviceId: validation.data.deviceId,
@@ -152,6 +153,7 @@ export const caseController = {
       }
 
       const caseData = await caseService.updateCase(id, {
+        caseType: validation.data.caseType,
         deviceId: validation.data.deviceId,
         customerComplaint: validation.data.customerComplaint,
         priority: validation.data.priority,
