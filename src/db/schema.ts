@@ -88,6 +88,7 @@ export const cases = pgTable("cases", {
   postRepairCleaned: boolean("post_repair_cleaned").notNull().default(false),
   postRepairRecommendations: text("post_repair_recommendations"),
   postRepairImages: text("post_repair_images"),
+  postRepairVideos: text("post_repair_videos"),
   postRepairDamagedPartImages: text("post_repair_damaged_part_images"),
   postRepairNote: text("post_repair_note"),
   notRepairableReason: text("not_repairable_reason"),

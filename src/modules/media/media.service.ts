@@ -30,7 +30,11 @@ type MediaAsset = {
   createdAt: Date | null;
 };
 
-const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_UPLOAD_SIZE_BYTES: Record<"image" | "video" | "audio", number> = {
+  image: 5 * 1024 * 1024,
+  video: 25 * 1024 * 1024,
+  audio: 10 * 1024 * 1024,
+};
 
 const ALLOWED_MIME_TYPES: Record<"image" | "video" | "audio", string[]> = {
   image: ["image/jpeg", "image/png", "image/webp", "image/gif"],
@@ -133,8 +137,11 @@ export const mediaService = {
       throw new Error("Uploaded file is empty.");
     }
 
-    if (fileBuffer.length > MAX_UPLOAD_SIZE_BYTES || input.fileSizeBytes > MAX_UPLOAD_SIZE_BYTES) {
-      throw new Error("File is too large. The maximum allowed size is 5 MB.");
+    const maxUploadSizeBytes = MAX_UPLOAD_SIZE_BYTES[mediaKind];
+
+    if (fileBuffer.length > maxUploadSizeBytes || input.fileSizeBytes > maxUploadSizeBytes) {
+      const maxUploadSizeMegabytes = Math.floor(maxUploadSizeBytes / (1024 * 1024));
+      throw new Error(`File is too large. The maximum allowed size is ${maxUploadSizeMegabytes} MB.`);
     }
 
     const objectPath = buildStoragePath(input);

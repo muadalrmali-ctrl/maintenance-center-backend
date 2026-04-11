@@ -177,6 +177,7 @@ export const caseController = {
         postRepairCleaned: validation.data.postRepairCleaned,
         postRepairRecommendations: validation.data.postRepairRecommendations,
         postRepairImages: validation.data.postRepairImages,
+        postRepairVideos: validation.data.postRepairVideos,
         postRepairDamagedPartImages: validation.data.postRepairDamagedPartImages,
         postRepairNote: validation.data.postRepairNote,
         notRepairableReason: validation.data.notRepairableReason,

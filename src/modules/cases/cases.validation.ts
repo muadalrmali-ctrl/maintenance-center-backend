@@ -59,6 +59,7 @@ export const updateCaseSchema = z.object({
   postRepairCleaned: z.boolean().optional(),
   postRepairRecommendations: z.string().optional().nullable(),
   postRepairImages: z.string().max(3_000_000).optional().nullable(),
+  postRepairVideos: z.string().max(3_000_000).optional().nullable(),
   postRepairDamagedPartImages: z.string().max(3_000_000).optional().nullable(),
   postRepairNote: z.string().optional().nullable(),
   notRepairableReason: z.string().optional().nullable(),
@@ -107,6 +108,7 @@ export const repairQualitySchema = z.object({
   postRepairCleaned: z.boolean().default(false),
   postRepairRecommendations: z.string().optional().nullable(),
   postRepairImages: z.string().max(3_000_000).optional().nullable(),
+  postRepairVideos: z.string().max(3_000_000).optional().nullable(),
   postRepairDamagedPartImages: z.string().max(3_000_000).optional().nullable(),
   postRepairNote: z.string().optional().nullable(),
 });

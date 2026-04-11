@@ -62,6 +62,7 @@ type UpdateCaseInput = {
   postRepairCleaned?: boolean;
   postRepairRecommendations?: string | null;
   postRepairImages?: string | null;
+  postRepairVideos?: string | null;
   postRepairDamagedPartImages?: string | null;
   postRepairNote?: string | null;
   notRepairableReason?: string | null;
@@ -110,6 +111,7 @@ type RepairQualityInput = {
   postRepairCleaned: boolean;
   postRepairRecommendations?: string | null;
   postRepairImages?: string | null;
+  postRepairVideos?: string | null;
   postRepairDamagedPartImages?: string | null;
   postRepairNote?: string | null;
 };
@@ -164,6 +166,7 @@ type CaseRow = {
   postRepairCleaned: boolean;
   postRepairRecommendations: string | null;
   postRepairImages: string | null;
+  postRepairVideos: string | null;
   postRepairDamagedPartImages: string | null;
   postRepairNote: string | null;
   notRepairableReason: string | null;
@@ -267,6 +270,7 @@ const returnCaseFields = {
   postRepairCleaned: cases.postRepairCleaned,
   postRepairRecommendations: cases.postRepairRecommendations,
   postRepairImages: cases.postRepairImages,
+  postRepairVideos: cases.postRepairVideos,
   postRepairDamagedPartImages: cases.postRepairDamagedPartImages,
   postRepairNote: cases.postRepairNote,
   notRepairableReason: cases.notRepairableReason,
@@ -578,6 +582,7 @@ export const caseService = {
         postRepairCleaned: cases.postRepairCleaned,
         postRepairRecommendations: cases.postRepairRecommendations,
         postRepairImages: cases.postRepairImages,
+        postRepairVideos: cases.postRepairVideos,
         postRepairDamagedPartImages: cases.postRepairDamagedPartImages,
         postRepairNote: cases.postRepairNote,
         notRepairableReason: cases.notRepairableReason,
@@ -750,6 +755,7 @@ export const caseService = {
     if (input.postRepairCleaned !== undefined) updateData.postRepairCleaned = input.postRepairCleaned;
     if (input.postRepairRecommendations !== undefined) updateData.postRepairRecommendations = input.postRepairRecommendations;
     if (input.postRepairImages !== undefined) updateData.postRepairImages = input.postRepairImages;
+    if (input.postRepairVideos !== undefined) updateData.postRepairVideos = input.postRepairVideos;
     if (input.postRepairDamagedPartImages !== undefined) updateData.postRepairDamagedPartImages = input.postRepairDamagedPartImages;
     if (input.postRepairNote !== undefined) updateData.postRepairNote = input.postRepairNote;
     if (input.notRepairableReason !== undefined) updateData.notRepairableReason = input.notRepairableReason;
@@ -1112,6 +1118,7 @@ export const caseService = {
         postRepairCleaned: input.postRepairCleaned,
         postRepairRecommendations: input.postRepairRecommendations,
         postRepairImages: input.postRepairImages,
+        postRepairVideos: input.postRepairVideos,
         postRepairDamagedPartImages: input.postRepairDamagedPartImages,
         postRepairNote: input.postRepairNote,
         updatedAt: new Date(),
@@ -1248,6 +1255,7 @@ export const caseService = {
             postRepairCleaned: input.postRepairCleaned,
             postRepairRecommendations: input.postRepairRecommendations,
             postRepairImages: input.postRepairImages,
+            postRepairVideos: input.postRepairVideos,
             postRepairDamagedPartImages: input.postRepairDamagedPartImages,
             postRepairNote: input.postRepairNote,
           } : {}),
