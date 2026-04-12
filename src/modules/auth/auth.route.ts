@@ -6,23 +6,24 @@ import { roleMiddleware } from "../../middlewares/role";
 const router = Router();
 
 router.post("/register", authMiddleware, roleMiddleware(["admin"]), authController.register);
+router.post("/team/activate", authMiddleware, roleMiddleware(["admin"]), authController.activateTeamAccounts);
 router.post("/login", authController.login);
 router.get(
   "/technicians",
   authMiddleware,
-  roleMiddleware(["receptionist", "technician_manager"]),
+  roleMiddleware(["receptionist", "technician_manager", "maintenance_manager"]),
   authController.getTechnicians
 );
 router.get(
   "/team",
   authMiddleware,
-  roleMiddleware(["admin", "receptionist", "technician_manager"]),
+  roleMiddleware(["admin", "receptionist", "technician_manager", "maintenance_manager"]),
   authController.getTeamMembers
 );
 router.get(
   "/team/:id",
   authMiddleware,
-  roleMiddleware(["admin", "receptionist", "technician_manager"]),
+  roleMiddleware(["admin", "receptionist", "technician_manager", "maintenance_manager"]),
   authController.getTeamMemberDetails
 );
 

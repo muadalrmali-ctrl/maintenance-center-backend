@@ -231,6 +231,11 @@ type CaseDetails = {
   } | null;
 };
 
+type CaseAccessContext = {
+  role?: string;
+  userId: number | null;
+};
+
 const returnCaseFields = {
   id: cases.id,
   caseCode: cases.caseCode,
@@ -543,7 +548,7 @@ export const caseService = {
     });
   },
 
-  async getCases(): Promise<any[]> {
+  async getCases(access?: CaseAccessContext): Promise<any[]> {
     return await db
       .select({
         id: cases.id,
@@ -610,12 +615,13 @@ export const caseService = {
       .leftJoin(devices, eq(cases.deviceId, devices.id))
       .where(and(
         isNull(cases.operationFinalizedAt),
-        notInArray(cases.status, [CASE_STATUSES.COMPLETED, CASE_STATUSES.DELIVERED, CASE_STATUSES.ARCHIVED])
+        notInArray(cases.status, [CASE_STATUSES.COMPLETED, CASE_STATUSES.DELIVERED, CASE_STATUSES.ARCHIVED]),
+        access?.role === "technician" && access.userId ? eq(cases.assignedTechnicianId, access.userId) : undefined,
       ))
       .orderBy(desc(cases.createdAt));
   },
 
-  async getCaseById(id: number): Promise<CaseDetails | undefined> {
+  async getCaseById(id: number, access?: CaseAccessContext): Promise<CaseDetails | undefined> {
     const foundCases = await db
       .select(returnCaseFields)
       .from(cases)
@@ -624,6 +630,10 @@ export const caseService = {
 
     const caseData = foundCases[0];
     if (!caseData) {
+      return undefined;
+    }
+
+    if (access?.role === "technician" && access.userId && caseData.assignedTechnicianId !== access.userId) {
       return undefined;
     }
 
@@ -1284,7 +1294,7 @@ export const caseService = {
     });
   },
 
-  async getMaintenanceOperations(): Promise<any[]> {
+  async getMaintenanceOperations(access?: CaseAccessContext): Promise<any[]> {
     return await db
       .select({
         id: cases.id,
@@ -1306,12 +1316,15 @@ export const caseService = {
       .from(cases)
       .leftJoin(customers, eq(cases.customerId, customers.id))
       .leftJoin(devices, eq(cases.deviceId, devices.id))
-      .where(or(isNotNull(cases.operationFinalizedAt), eq(cases.status, CASE_STATUSES.COMPLETED)))
+      .where(and(
+        or(isNotNull(cases.operationFinalizedAt), eq(cases.status, CASE_STATUSES.COMPLETED)),
+        access?.role === "technician" && access.userId ? eq(cases.assignedTechnicianId, access.userId) : undefined,
+      ))
       .orderBy(desc(cases.operationFinalizedAt));
   },
 
-  async getMaintenanceOperationById(id: number): Promise<CaseDetails | undefined> {
-    const operation = await this.getCaseById(id);
+  async getMaintenanceOperationById(id: number, access?: CaseAccessContext): Promise<CaseDetails | undefined> {
+    const operation = await this.getCaseById(id, access);
     if (!operation) return undefined;
 
     if (!operation.caseData.operationFinalizedAt && operation.caseData.status !== CASE_STATUSES.COMPLETED) {

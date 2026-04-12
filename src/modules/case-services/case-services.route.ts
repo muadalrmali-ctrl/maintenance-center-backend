@@ -9,10 +9,10 @@ const router = Router();
 router.use(authMiddleware);
 
 // POST /cases/:caseId/services - Add service to case
-router.post("/:caseId/services", roleMiddleware(["technician", "technician_manager"]), caseServicesController.addService);
+router.post("/:caseId/services", roleMiddleware(["technician", "technician_manager", "maintenance_manager"]), caseServicesController.addService);
 
 // GET /cases/:caseId/services - Get all services for a case
-router.get("/:caseId/services", roleMiddleware(["receptionist", "technician", "technician_manager"]), caseServicesController.getCaseServices);
-router.delete("/:caseId/services/:serviceId", roleMiddleware(["technician", "technician_manager"]), caseServicesController.removeService);
+router.get("/:caseId/services", roleMiddleware(["receptionist", "technician", "technician_manager", "maintenance_manager"]), caseServicesController.getCaseServices);
+router.delete("/:caseId/services/:serviceId", roleMiddleware(["technician", "technician_manager", "maintenance_manager"]), caseServicesController.removeService);
 
 export const caseServicesRoutes = router;

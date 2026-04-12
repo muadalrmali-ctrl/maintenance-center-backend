@@ -12,11 +12,11 @@ router.use(authMiddleware);
 router.post("/", roleMiddleware(["admin"]), notificationsController.createNotification);
 router.post(
   "/send-customer-message",
-  roleMiddleware(["admin", "receptionist", "technician_manager", "technician"]),
+  roleMiddleware(["admin", "receptionist", "technician_manager", "maintenance_manager", "technician"]),
   notificationsController.sendCustomerMessage
 );
 
 // GET /api/notifications - Get all notifications (all roles can read)
-router.get("/", roleMiddleware(["admin", "receptionist", "technician", "store_manager", "technician_manager"]), notificationsController.getAllNotifications);
+router.get("/", roleMiddleware(["admin", "receptionist", "technician", "store_manager", "technician_manager", "maintenance_manager"]), notificationsController.getAllNotifications);
 
 export const notificationsRoutes = router;

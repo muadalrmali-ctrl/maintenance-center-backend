@@ -119,6 +119,53 @@ export const authController = {
     }
   },
 
+  async activateTeamAccounts(req: Request, res: Response) {
+    try {
+      const accounts = Array.isArray(req.body?.accounts) ? req.body.accounts : [];
+
+      if (!accounts.length) {
+        return res.status(400).json({
+          success: false,
+          message: "At least one staff account is required",
+        });
+      }
+
+      const invalidAccount = accounts.find(
+        (account: {
+          name?: unknown;
+          email?: unknown;
+          role?: unknown;
+          temporaryPassword?: unknown;
+        }) =>
+          !account ||
+          typeof account.name !== "string" ||
+          typeof account.email !== "string" ||
+          typeof account.role !== "string" ||
+          (account.temporaryPassword != null && typeof account.temporaryPassword !== "string")
+      );
+
+      if (invalidAccount) {
+        return res.status(400).json({
+          success: false,
+          message: "Each account must include name, email, role, and optional temporaryPassword",
+        });
+      }
+
+      const activatedAccounts = await authService.activateStaffAccounts(accounts);
+
+      return res.status(200).json({
+        success: true,
+        message: "Staff accounts activated successfully",
+        data: activatedAccounts,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to activate staff accounts",
+      });
+    }
+  },
+
   async login(req: Request, res: Response) {
     try {
       const { email, password } = req.body;

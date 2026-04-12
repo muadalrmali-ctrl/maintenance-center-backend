@@ -5,7 +5,7 @@ import { db } from "../../db";
 import { staffInvitations, users } from "../../db/schema";
 import { env } from "../../config/env";
 
-type StaffRole = "technician" | "store_manager" | "receptionist" | "admin";
+type StaffRole = "technician" | "store_manager" | "receptionist" | "technician_manager" | "maintenance_manager" | "admin";
 
 type CreateInvitationInput = {
   role: StaffRole;

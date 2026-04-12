@@ -1,9 +1,11 @@
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../db";
 import { caseStatusHistory, cases, customers, devices, inventoryItems, inventoryMovements, invoices, staffInvitations, users } from "../../db/schema";
 import { env } from "../../config/env";
+import { APP_ROLES, TEAM_ROLES, isAppRole, roleLabels, type AppRole } from "../../lib/roles";
 
 type RegisterUserInput = {
   name: string;
@@ -17,6 +19,13 @@ type LoginUserInput = {
   password: string;
 };
 
+type ActivateStaffAccountInput = {
+  name: string;
+  email: string;
+  role: AppRole;
+  temporaryPassword?: string;
+};
+
 type LoginResult = {
   user: {
     id: number;
@@ -26,6 +35,15 @@ type LoginResult = {
     createdAt: Date | null;
   };
   token: string;
+};
+
+type ActivatedStaffAccount = {
+  id: number;
+  name: string;
+  email: string;
+  role: AppRole;
+  temporaryPassword: string;
+  created: boolean;
 };
 
 type TeamMemberDetails = {
@@ -119,7 +137,12 @@ type TeamMemberDetails = {
   }>;
 };
 
-const TEAM_ROLES = ["technician", "technician_manager", "store_manager", "receptionist", "admin"] as const;
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+const generateTemporaryPassword = () => {
+  const token = crypto.randomBytes(9).toString("base64url");
+  return `Tmp-${token}9!`;
+};
 
 const getRoleLabel = (role: string) => {
   switch (role) {
@@ -547,10 +570,10 @@ export const authService = {
   },
 
   async registerUser(input: RegisterUserInput) {
-    const { name, email, password, role = "technician" } = input;
+    const { name, password, role = "technician" } = input;
+    const email = normalizeEmail(input.email);
 
-    const allowedRoles = ["admin", "receptionist", "technician", "store_manager", "technician_manager"];
-    if (!allowedRoles.includes(role)) {
+    if (!isAppRole(role)) {
       throw new Error("Invalid role specified");
     }
 
@@ -576,10 +599,11 @@ export const authService = {
   },
 
   async loginUser(data: LoginUserInput): Promise<LoginResult> {
+    const email = normalizeEmail(data.email);
     const foundUsers = await db
       .select()
       .from(users)
-      .where(eq(users.email, data.email))
+      .where(eq(users.email, email))
       .limit(1);
 
     const user = foundUsers[0];
@@ -617,5 +641,100 @@ export const authService = {
       },
       token,
     };
+  },
+
+  async activateStaffAccounts(accounts: ActivateStaffAccountInput[]): Promise<ActivatedStaffAccount[]> {
+    if (!accounts.length) {
+      throw new Error("At least one staff account is required");
+    }
+
+    const activatedAccounts: ActivatedStaffAccount[] = [];
+
+    for (const account of accounts) {
+      const email = normalizeEmail(account.email);
+      const name = account.name.trim();
+
+      if (!name) {
+        throw new Error("Staff name is required");
+      }
+
+      if (!email) {
+        throw new Error("Staff email is required");
+      }
+
+      if (!isAppRole(account.role)) {
+        throw new Error(`Invalid role specified for ${email}`);
+      }
+
+      const temporaryPassword = account.temporaryPassword?.trim() || generateTemporaryPassword();
+      if (temporaryPassword.length < 8) {
+        throw new Error(`Temporary password for ${email} must be at least 8 characters`);
+      }
+
+      const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+
+      const existingUsers = await db
+        .select({
+          id: users.id,
+        })
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+
+      if (existingUsers[0]) {
+        const updatedUsers = await db
+          .update(users)
+          .set({
+            name,
+            email,
+            password: hashedPassword,
+            role: account.role,
+          })
+          .where(eq(users.id, existingUsers[0].id))
+          .returning({
+            id: users.id,
+            name: users.name,
+            email: users.email,
+            role: users.role,
+          });
+
+        activatedAccounts.push({
+          id: updatedUsers[0].id,
+          name: updatedUsers[0].name,
+          email: updatedUsers[0].email,
+          role: updatedUsers[0].role as AppRole,
+          temporaryPassword,
+          created: false,
+        });
+
+        continue;
+      }
+
+      const createdUsers = await db
+        .insert(users)
+        .values({
+          name,
+          email,
+          password: hashedPassword,
+          role: account.role,
+        })
+        .returning({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          role: users.role,
+        });
+
+      activatedAccounts.push({
+        id: createdUsers[0].id,
+        name: createdUsers[0].name,
+        email: createdUsers[0].email,
+        role: createdUsers[0].role as AppRole,
+        temporaryPassword,
+        created: true,
+      });
+    }
+
+    return activatedAccounts;
   },
 };

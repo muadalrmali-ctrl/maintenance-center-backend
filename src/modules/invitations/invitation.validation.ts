@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const staffRoles = ["technician", "store_manager", "receptionist", "admin"] as const;
+export const staffRoles = ["technician", "store_manager", "receptionist", "technician_manager", "maintenance_manager", "admin"] as const;
 
 export const createInvitationSchema = z.object({
   role: z.enum(staffRoles),

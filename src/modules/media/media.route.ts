@@ -10,7 +10,7 @@ router.use(authMiddleware);
 
 router.post(
   "/upload-case-file",
-  roleMiddleware(["admin", "receptionist", "technician", "technician_manager"]),
+  roleMiddleware(["admin", "receptionist", "technician", "technician_manager", "maintenance_manager"]),
   mediaController.uploadCaseMediaFile
 );
 
@@ -18,6 +18,6 @@ router.post(
 router.post("/", roleMiddleware(["admin"]), mediaController.uploadMedia);
 
 // GET /api/media/:entityType/:entityId - Get media by entity (all roles can read)
-router.get("/:entityType/:entityId", roleMiddleware(["admin", "receptionist", "technician", "store_manager", "technician_manager"]), mediaController.getMediaByEntity);
+router.get("/:entityType/:entityId", roleMiddleware(["admin", "receptionist", "technician", "store_manager", "technician_manager", "maintenance_manager"]), mediaController.getMediaByEntity);
 
 export const mediaRoutes = router;

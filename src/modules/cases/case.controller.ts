@@ -80,7 +80,10 @@ export const caseController = {
 
   async getAll(req: Request, res: Response) {
     try {
-      const cases = await caseService.getCases();
+      const cases = await caseService.getCases({
+        role: req.user?.role,
+        userId: getRequestUserId(req),
+      });
 
       return res.status(200).json({
         success: true,
@@ -108,7 +111,10 @@ export const caseController = {
         });
       }
 
-      const caseData = await caseService.getCaseById(id);
+      const caseData = await caseService.getCaseById(id, {
+        role: req.user?.role,
+        userId: getRequestUserId(req),
+      });
 
       if (!caseData) {
         return res.status(404).json({
@@ -303,9 +309,12 @@ export const caseController = {
     }
   },
 
-  async getMaintenanceOperations(_req: Request, res: Response) {
+  async getMaintenanceOperations(req: Request, res: Response) {
     try {
-      const operations = await caseService.getMaintenanceOperations();
+      const operations = await caseService.getMaintenanceOperations({
+        role: req.user?.role,
+        userId: getRequestUserId(req),
+      });
 
       return res.status(200).json({
         success: true,
@@ -330,7 +339,10 @@ export const caseController = {
         return res.status(400).json({ success: false, message: "Invalid operation ID" });
       }
 
-      const operation = await caseService.getMaintenanceOperationById(id);
+      const operation = await caseService.getMaintenanceOperationById(id, {
+        role: req.user?.role,
+        userId: getRequestUserId(req),
+      });
 
       if (!operation) {
         return res.status(404).json({ success: false, message: "Maintenance operation not found" });

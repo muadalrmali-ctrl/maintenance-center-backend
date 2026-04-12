@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from "express";
+import { type AppRole } from "../lib/roles";
 
-type AllowedRoles = "admin" | "receptionist" | "technician" | "store_manager" | "technician_manager";
-
-export const roleMiddleware = (allowedRoles: AllowedRoles[]) => {
+export const roleMiddleware = (allowedRoles: AppRole[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const userRole = req.user?.role;
 
@@ -19,7 +18,7 @@ export const roleMiddleware = (allowedRoles: AllowedRoles[]) => {
     }
 
     // Check if user's role is in allowed roles
-    if (!allowedRoles.includes(userRole as AllowedRoles)) {
+    if (!allowedRoles.includes(userRole as AppRole)) {
       return res.status(403).json({
         success: false,
         message: "Insufficient permissions",

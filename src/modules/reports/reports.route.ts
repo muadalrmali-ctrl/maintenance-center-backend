@@ -6,7 +6,7 @@ import { reportsController } from "./reports.controller";
 const router = Router();
 
 router.use(authMiddleware);
-router.use(roleMiddleware(["admin", "receptionist", "store_manager", "technician_manager"]));
+router.use(roleMiddleware(["admin", "receptionist", "store_manager", "technician_manager", "maintenance_manager"]));
 
 router.get("/meta", reportsController.getMeta);
 router.get("/", reportsController.getReport);
