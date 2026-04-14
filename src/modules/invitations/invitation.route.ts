@@ -9,7 +9,8 @@ router.get("/:token", invitationController.getByToken);
 router.post("/:token/accept", invitationController.accept);
 
 router.use(authMiddleware);
-router.get("/", roleMiddleware(["admin"]), invitationController.list);
-router.post("/", roleMiddleware(["admin"]), invitationController.create);
+router.get("/", roleMiddleware(["admin", "receptionist", "technician_manager", "maintenance_manager"]), invitationController.list);
+router.post("/", roleMiddleware(["admin", "technician_manager", "maintenance_manager"]), invitationController.create);
+router.patch("/:id/revoke", roleMiddleware(["admin", "technician_manager", "maintenance_manager"]), invitationController.revoke);
 
 export default router;

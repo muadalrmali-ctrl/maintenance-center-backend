@@ -5,16 +5,19 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
+  phone: text("phone"),
   role: text("role").notNull().default("technician"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const staffInvitations = pgTable("staff_invitations", {
   id: serial("id").primaryKey(),
+  token: text("token").notNull().unique(),
   tokenHash: text("token_hash").notNull().unique(),
   role: text("role").notNull(),
   status: text("status").notNull().default("pending"),
   name: text("name"),
+  email: text("email"),
   phone: text("phone"),
   notes: text("notes"),
   invitedBy: integer("invited_by").references(() => users.id),

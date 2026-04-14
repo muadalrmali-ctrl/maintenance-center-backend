@@ -11,6 +11,7 @@ type RegisterUserInput = {
   name: string;
   email: string;
   password: string;
+  phone?: string;
   role?: string;
 };
 
@@ -182,6 +183,7 @@ export const authService = {
         id: users.id,
         name: users.name,
         email: users.email,
+        phone: users.phone,
         role: users.role,
         createdAt: users.createdAt,
       })
@@ -195,6 +197,7 @@ export const authService = {
         id: users.id,
         name: users.name,
         email: users.email,
+        phone: users.phone,
         role: users.role,
         createdAt: users.createdAt,
       })
@@ -208,6 +211,7 @@ export const authService = {
         id: users.id,
         name: users.name,
         email: users.email,
+        phone: users.phone,
         role: users.role,
         createdAt: users.createdAt,
       })
@@ -237,7 +241,7 @@ export const authService = {
         name: member.name,
         email: member.email,
         role: member.role,
-        phone: invitationRows[0]?.phone ?? null,
+        phone: member.phone ?? invitationRows[0]?.phone ?? null,
         status: "نشط",
         joinDate: member.createdAt,
         specialty: null,
@@ -570,7 +574,7 @@ export const authService = {
   },
 
   async registerUser(input: RegisterUserInput) {
-    const { name, password, role = "technician" } = input;
+    const { name, password, phone, role = "technician" } = input;
     const email = normalizeEmail(input.email);
 
     if (!isAppRole(role)) {
@@ -585,6 +589,7 @@ export const authService = {
         name,
         email,
         password: hashedPassword,
+        phone: phone?.trim() || null,
         role,
       })
       .returning({
