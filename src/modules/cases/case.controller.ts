@@ -9,6 +9,7 @@ import {
   repairQualitySchema,
   readyNotificationSchema,
 } from "./cases.validation";
+import { requestHasPermission } from "../../middlewares/permission";
 
 const logCaseError = (action: string, error: unknown) => {
   console.error(
@@ -22,6 +23,77 @@ const getRequestUserId = (req: Request) => {
   const userId = typeof rawUserId === "string" ? Number(rawUserId) : rawUserId;
   return userId && !Number.isNaN(userId) ? userId : null;
 };
+
+const CASE_UPDATE_PERMISSION_RULES: Array<{ keys: string[]; permission: string }> = [
+  {
+    keys: [
+      "deliveryDueAt",
+      "waitingPartInventoryItemId",
+      "waitingPartName",
+      "waitingPartNotes",
+      "waitingPartImageUrl",
+      "diagnosisNote",
+      "faultCause",
+      "latestMessage",
+      "latestMessageChannel",
+      "latestMessageSentAt",
+    ],
+    permission: "cases.diagnosis.edit",
+  },
+  {
+    keys: ["assignedTechnicianId", "executionDurationDays", "executionDurationHours"],
+    permission: "cases.approval.prepare_execution",
+  },
+  {
+    keys: [
+      "postRepairCompletedWork",
+      "postRepairTested",
+      "postRepairTestCount",
+      "postRepairCleaned",
+      "postRepairRecommendations",
+      "postRepairImages",
+      "postRepairVideos",
+      "postRepairDamagedPartImages",
+      "postRepairNote",
+      "operationFinalizedAt",
+    ],
+    permission: "cases.repaired.post_repair_quality.view",
+  },
+  {
+    keys: ["readyNotificationMessage", "readyNotificationChannel", "readyNotificationSentAt"],
+    permission: "cases.repaired.ready_notification.send",
+  },
+  {
+    keys: ["customerReceivedAt", "finalResult", "notRepairableReason"],
+    permission: "cases.repaired.summary.view",
+  },
+];
+
+const CASE_STATUS_PERMISSION_MAP: Record<string, string> = {
+  received: "cases.diagnosis.edit",
+  new: "cases.diagnosis.edit",
+  waiting_part: "cases.diagnosis.edit",
+  diagnosing: "cases.diagnosis.edit",
+  waiting_approval: "cases.diagnosis.edit",
+  in_progress: "cases.approval.prepare_execution",
+  repaired: "cases.in_progress.mark_repaired",
+  not_repairable: "cases.diagnosis.edit",
+};
+
+const collectRequiredPatchPermissions = (payload: Record<string, unknown>) => {
+  const requiredPermissions = new Set<string>();
+
+  for (const rule of CASE_UPDATE_PERMISSION_RULES) {
+    if (rule.keys.some((key) => payload[key] !== undefined)) {
+      requiredPermissions.add(rule.permission);
+    }
+  }
+
+  return [...requiredPermissions];
+};
+
+const findMissingPermissions = (req: Request, permissionKeys: string[]) =>
+  permissionKeys.filter((permissionKey) => !requestHasPermission(req, permissionKey));
 
 export const caseController = {
   async create(req: Request, res: Response) {
@@ -158,6 +230,19 @@ export const caseController = {
         });
       }
 
+      const missingPermissions = findMissingPermissions(
+        req,
+        collectRequiredPatchPermissions(validation.data as Record<string, unknown>)
+      );
+
+      if (missingPermissions.length > 0) {
+        return res.status(403).json({
+          success: false,
+          message: "Insufficient permissions",
+          requiredPermissions: missingPermissions,
+        });
+      }
+
       const caseData = await caseService.updateCase(id, {
         caseType: validation.data.caseType,
         deviceId: validation.data.deviceId,
@@ -246,6 +331,15 @@ export const caseController = {
         return res.status(401).json({
           success: false,
           message: "Unauthorized",
+        });
+      }
+
+      const requiredPermission = CASE_STATUS_PERMISSION_MAP[validation.data.toStatus];
+      if (requiredPermission && !requestHasPermission(req, requiredPermission)) {
+        return res.status(403).json({
+          success: false,
+          message: "Insufficient permissions",
+          requiredPermission,
         });
       }
 

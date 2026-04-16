@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { dashboardController } from "./dashboard.controller";
 import { authMiddleware } from "../../middlewares/auth";
-import { roleMiddleware } from "../../middlewares/role";
+import { requirePermission } from "../../middlewares/permission";
 
 const router = Router();
 
@@ -9,12 +9,12 @@ const router = Router();
 router.use(authMiddleware);
 
 // GET /api/dashboard/summary - Get dashboard summary (all roles)
-router.get("/summary", roleMiddleware(["admin", "receptionist", "technician", "store_manager", "technician_manager", "maintenance_manager"]), dashboardController.getDashboardSummary);
+router.get("/summary", requirePermission("dashboard.view"), dashboardController.getDashboardSummary);
 
 // GET /api/dashboard/revenue - Get revenue data (all roles)
-router.get("/revenue", roleMiddleware(["admin", "receptionist", "technician", "store_manager", "technician_manager", "maintenance_manager"]), dashboardController.getRevenue);
+router.get("/revenue", requirePermission("dashboard.view"), dashboardController.getRevenue);
 
 // GET /api/dashboard/cases - Get cases statistics (all roles)
-router.get("/cases", roleMiddleware(["admin", "receptionist", "technician", "store_manager", "technician_manager", "maintenance_manager"]), dashboardController.getCasesStats);
+router.get("/cases", requirePermission("dashboard.view"), dashboardController.getCasesStats);
 
 export const dashboardRoutes = router;

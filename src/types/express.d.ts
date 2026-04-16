@@ -5,6 +5,8 @@ declare namespace Express {
       name: string;
       email: string;
       role: string;
+      permissions: string[];
+      isAdmin: boolean;
     };
   }
 }

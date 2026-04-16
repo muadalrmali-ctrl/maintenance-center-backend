@@ -1,30 +1,30 @@
 import { Router } from "express";
 import { caseController } from "./case.controller";
 import { authMiddleware } from "../../middlewares/auth";
-import { roleMiddleware } from "../../middlewares/role";
+import { requireAnyPermission, requirePermission } from "../../middlewares/permission";
 
 const router = Router();
 
 router.use(authMiddleware);
 
 // Receptionist can create and manage basic case data
-router.post("/", roleMiddleware(["receptionist", "maintenance_manager"]), caseController.create);
-router.get("/", roleMiddleware(["receptionist", "store_manager", "technician", "technician_manager", "maintenance_manager"]), caseController.getAll);
-router.get("/maintenance-operations", roleMiddleware(["receptionist", "technician", "technician_manager", "maintenance_manager"]), caseController.getMaintenanceOperations);
-router.get("/maintenance-operations/:id", roleMiddleware(["receptionist", "technician", "technician_manager", "maintenance_manager"]), caseController.getMaintenanceOperationById);
-router.get("/:id", roleMiddleware(["receptionist", "store_manager", "technician", "technician_manager", "maintenance_manager"]), caseController.getById);
-router.patch("/:id", roleMiddleware(["receptionist", "technician", "technician_manager", "maintenance_manager"]), caseController.update);
+router.post("/", requirePermission("cases.create"), caseController.create);
+router.get("/", requirePermission("cases.view"), caseController.getAll);
+router.get("/maintenance-operations", requirePermission("maintenance_operations.view"), caseController.getMaintenanceOperations);
+router.get("/maintenance-operations/:id", requirePermission("maintenance_operations.view"), caseController.getMaintenanceOperationById);
+router.get("/:id", requirePermission("cases.view"), caseController.getById);
+router.patch("/:id", requirePermission("cases.view"), caseController.update);
 
 // Technician and Technician Manager can change status
-router.patch("/:id/status", roleMiddleware(["technician", "technician_manager", "maintenance_manager"]), caseController.changeStatus);
-router.patch("/:id/approval/confirm", roleMiddleware(["receptionist", "technician", "technician_manager", "maintenance_manager"]), caseController.confirmCustomerApproval);
-router.patch("/:id/execution/start", roleMiddleware(["technician", "technician_manager", "maintenance_manager"]), caseController.startExecution);
-router.patch("/:id/execution/pause", roleMiddleware(["technician", "technician_manager", "maintenance_manager"]), caseController.pauseExecution);
-router.patch("/:id/execution/resume", roleMiddleware(["technician", "technician_manager", "maintenance_manager"]), caseController.resumeExecution);
-router.patch("/:id/execution/complete", roleMiddleware(["technician", "technician_manager", "maintenance_manager"]), caseController.completeRepair);
-router.patch("/:id/repair-quality", roleMiddleware(["technician", "technician_manager", "maintenance_manager"]), caseController.saveRepairQuality);
-router.patch("/:id/ready-notification", roleMiddleware(["receptionist", "technician", "technician_manager", "maintenance_manager"]), caseController.sendReadyNotification);
-router.patch("/:id/customer-received", roleMiddleware(["receptionist", "technician_manager", "maintenance_manager"]), caseController.markCustomerReceived);
-router.patch("/:id/finalize", roleMiddleware(["receptionist", "technician_manager", "maintenance_manager"]), caseController.finalizeOperation);
+router.patch("/:id/status", requireAnyPermission(["cases.diagnosis.edit", "cases.approval.prepare_execution", "cases.in_progress.mark_repaired"]), caseController.changeStatus);
+router.patch("/:id/approval/confirm", requirePermission("cases.approval.approve"), caseController.confirmCustomerApproval);
+router.patch("/:id/execution/start", requirePermission("cases.approval.prepare_execution"), caseController.startExecution);
+router.patch("/:id/execution/pause", requirePermission("cases.in_progress.execution.preview"), caseController.pauseExecution);
+router.patch("/:id/execution/resume", requirePermission("cases.in_progress.execution.preview"), caseController.resumeExecution);
+router.patch("/:id/execution/complete", requirePermission("cases.in_progress.mark_repaired"), caseController.completeRepair);
+router.patch("/:id/repair-quality", requirePermission("cases.repaired.post_repair_quality.view"), caseController.saveRepairQuality);
+router.patch("/:id/ready-notification", requirePermission("cases.repaired.ready_notification.send"), caseController.sendReadyNotification);
+router.patch("/:id/customer-received", requirePermission("cases.repaired.summary.view"), caseController.markCustomerReceived);
+router.patch("/:id/finalize", requirePermission("cases.repaired.post_repair_quality.view"), caseController.finalizeOperation);
 
 export default router;

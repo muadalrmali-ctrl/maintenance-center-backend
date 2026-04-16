@@ -2,6 +2,7 @@ import { Router } from "express";
 import { notificationsController } from "./notifications.controller";
 import { authMiddleware } from "../../middlewares/auth";
 import { roleMiddleware } from "../../middlewares/role";
+import { requireAnyPermission, requirePermission } from "../../middlewares/permission";
 
 const router = Router();
 
@@ -12,11 +13,11 @@ router.use(authMiddleware);
 router.post("/", roleMiddleware(["admin"]), notificationsController.createNotification);
 router.post(
   "/send-customer-message",
-  roleMiddleware(["admin", "receptionist", "technician_manager", "maintenance_manager", "technician"]),
+  requireAnyPermission(["cases.diagnosis.edit", "cases.repaired.ready_notification.send"]),
   notificationsController.sendCustomerMessage
 );
 
 // GET /api/notifications - Get all notifications (all roles can read)
-router.get("/", roleMiddleware(["admin", "receptionist", "technician", "store_manager", "technician_manager", "maintenance_manager"]), notificationsController.getAllNotifications);
+router.get("/", requirePermission("dashboard.view"), notificationsController.getAllNotifications);
 
 export const notificationsRoutes = router;

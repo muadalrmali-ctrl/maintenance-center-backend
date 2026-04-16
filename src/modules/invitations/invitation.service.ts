@@ -1,10 +1,12 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { env } from "../../config/env";
 import { db } from "../../db";
-import { staffInvitations, users } from "../../db/schema";
+import { permissions, staffInvitations, userPermissions, users } from "../../db/schema";
+import { getDefaultPermissionKeysForRole } from "../../lib/permissions";
+import { permissionsService } from "../permissions/permissions.service";
 
 type StaffRole =
   | "technician"
@@ -204,6 +206,7 @@ export const invitationService = {
   async acceptInvitation(input: AcceptInvitationInput) {
     const tokenHash = hashToken(input.token);
     const email = normalizeEmail(input.email);
+    await permissionsService.seedCatalog();
 
     return await db.transaction(async (tx) => {
       const invitationRecords = await tx
@@ -278,6 +281,26 @@ export const invitationService = {
         });
 
       const user = createdUsers[0];
+      const defaultPermissionKeys = getDefaultPermissionKeysForRole(user.role as StaffRole);
+      const permissionRows = defaultPermissionKeys.length
+        ? await tx
+            .select({
+              id: permissions.id,
+              key: permissions.key,
+            })
+            .from(permissions)
+            .where(inArray(permissions.key, defaultPermissionKeys))
+        : [];
+
+      if (permissionRows.length > 0) {
+        await tx.insert(userPermissions).values(
+          permissionRows.map((permissionRow) => ({
+            userId: user.id,
+            permissionId: permissionRow.id,
+            createdAt: new Date(),
+          }))
+        );
+      }
 
       await tx
         .update(staffInvitations)
@@ -308,7 +331,10 @@ export const invitationService = {
       );
 
       return {
-        user,
+        user: {
+          ...user,
+          permissions: await permissionsService.getUserPermissionKeys(user.id, user.role),
+        },
         token: authToken,
       };
     });

@@ -6,6 +6,7 @@ import { db } from "../../db";
 import { caseStatusHistory, cases, customers, devices, inventoryItems, inventoryMovements, invoices, staffInvitations, users } from "../../db/schema";
 import { env } from "../../config/env";
 import { APP_ROLES, TEAM_ROLES, isAppRole, roleLabels, type AppRole } from "../../lib/roles";
+import { permissionsService } from "../permissions/permissions.service";
 
 type RegisterUserInput = {
   name: string;
@@ -33,6 +34,7 @@ type LoginResult = {
     name: string;
     email: string;
     role: string;
+    permissions: string[];
     createdAt: Date | null;
   };
   token: string;
@@ -600,6 +602,8 @@ export const authService = {
         createdAt: users.createdAt,
       });
 
+    await permissionsService.assignDefaultPermissions(createdUsers[0].id, createdUsers[0].role as AppRole);
+
     return createdUsers[0];
   },
 
@@ -636,12 +640,15 @@ export const authService = {
       }
     );
 
+    const permissions = await permissionsService.getUserPermissionKeys(user.id, user.role);
+
     return {
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
+        permissions,
         createdAt: user.createdAt,
       },
       token,
@@ -703,6 +710,8 @@ export const authService = {
             role: users.role,
           });
 
+        await permissionsService.assignDefaultPermissions(updatedUsers[0].id, updatedUsers[0].role as AppRole);
+
         activatedAccounts.push({
           id: updatedUsers[0].id,
           name: updatedUsers[0].name,
@@ -729,6 +738,8 @@ export const authService = {
           email: users.email,
           role: users.role,
         });
+
+      await permissionsService.assignDefaultPermissions(createdUsers[0].id, createdUsers[0].role as AppRole);
 
       activatedAccounts.push({
         id: createdUsers[0].id,

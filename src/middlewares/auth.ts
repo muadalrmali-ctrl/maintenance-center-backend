@@ -1,6 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env";
+import { db } from "../db";
+import { users } from "../db/schema";
+import { eq } from "drizzle-orm";
+import { permissionsService } from "../modules/permissions/permissions.service";
 
 type JwtUserPayload = {
   id?: number | string;
@@ -12,7 +16,7 @@ type JwtUserPayload = {
   exp?: number;
 };
 
-export const authMiddleware = (
+export const authMiddleware = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -40,11 +44,35 @@ export const authMiddleware = (
       });
     }
 
+    const foundUsers = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const user = foundUsers[0];
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authenticated user no longer exists",
+      });
+    }
+
+    const permissions = await permissionsService.getUserPermissionKeys(user.id, user.role);
+
     req.user = {
-      id: userId,
-      name: decoded.name ?? "",
-      email: decoded.email ?? "",
-      role: decoded.role ?? "technician",
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      permissions,
+      isAdmin: user.role === "admin",
     };
 
     return next();

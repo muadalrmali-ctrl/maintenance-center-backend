@@ -1,12 +1,12 @@
 import { Router } from "express";
 import { customerController } from "./customer.controller";
 import { authMiddleware } from "../../middlewares/auth";
-import { roleMiddleware } from "../../middlewares/role";
+import { requirePermission } from "../../middlewares/permission";
 
 const router = Router();
 
 router.use(authMiddleware);
-router.use(roleMiddleware(["receptionist"]));
+router.use(requirePermission("accounting.customers.view"));
 
 router.post("/", customerController.create);
 router.get("/", customerController.getAll);

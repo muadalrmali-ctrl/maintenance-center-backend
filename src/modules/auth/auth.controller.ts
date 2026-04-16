@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { authService } from "./auth.service";
+import { permissionsService } from "../permissions/permissions.service";
 
 export const authController = {
   async getTeamMemberDetails(req: Request, res: Response) {
@@ -58,6 +59,78 @@ export const authController = {
         success: false,
         message: "Failed to retrieve team members",
         error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  async getTeamMemberPermissions(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+
+      if (!Number.isFinite(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid team member ID",
+        });
+      }
+
+      const memberPermissions = await permissionsService.getUserPermissions(id);
+
+      if (!memberPermissions) {
+        return res.status(404).json({
+          success: false,
+          message: "Team member not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Team member permissions retrieved successfully",
+        data: memberPermissions,
+      });
+    } catch (error) {
+      console.error("[auth:getTeamMemberPermissions]", error instanceof Error ? error.message : error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve team member permissions",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  async updateTeamMemberPermissions(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const permissionKeys = Array.isArray(req.body?.permissions) ? req.body.permissions : [];
+
+      if (!Number.isFinite(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid team member ID",
+        });
+      }
+
+      if (!permissionKeys.every((key: unknown) => typeof key === "string")) {
+        return res.status(400).json({
+          success: false,
+          message: "permissions must be an array of permission keys",
+        });
+      }
+
+      const updatedKeys = await permissionsService.replaceUserPermissions(id, permissionKeys);
+
+      return res.status(200).json({
+        success: true,
+        message: "Team member permissions updated successfully",
+        data: {
+          userId: id,
+          permissions: updatedKeys,
+        },
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to update team member permissions",
       });
     }
   },

@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { reportsService } from "./reports.service";
+import { REPORT_CATEGORY_PERMISSION_MAP } from "../../lib/permissions";
+import { requestHasPermission } from "../../middlewares/permission";
 
 const parseOptionalDate = (value: unknown) => {
   if (!value || typeof value !== "string") return null;
@@ -42,6 +44,14 @@ export const reportsController = {
         | "sales"
         | "customers"
         | "operations";
+
+      const requiredPermission = REPORT_CATEGORY_PERMISSION_MAP[category];
+      if (!requiredPermission || !requestHasPermission(req, requiredPermission)) {
+        return res.status(403).json({
+          success: false,
+          message: "Insufficient permissions for this report category",
+        });
+      }
 
       const data = await reportsService.getReport({
         category,

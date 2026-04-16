@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authController } from "./auth.controller";
 import { authMiddleware } from "../../middlewares/auth";
 import { roleMiddleware } from "../../middlewares/role";
+import { requirePermission } from "../../middlewares/permission";
 
 const router = Router();
 
@@ -11,21 +12,23 @@ router.post("/login", authController.login);
 router.get(
   "/technicians",
   authMiddleware,
-  roleMiddleware(["receptionist", "technician_manager", "maintenance_manager"]),
+  requirePermission("cases.approval.prepare_execution"),
   authController.getTechnicians
 );
 router.get(
   "/team",
   authMiddleware,
-  roleMiddleware(["admin", "receptionist", "technician_manager", "maintenance_manager"]),
+  requirePermission("accounting.team.view"),
   authController.getTeamMembers
 );
 router.get(
   "/team/:id",
   authMiddleware,
-  roleMiddleware(["admin", "receptionist", "technician_manager", "maintenance_manager"]),
+  requirePermission("accounting.team.view"),
   authController.getTeamMemberDetails
 );
+router.get("/team/:id/permissions", authMiddleware, roleMiddleware(["admin"]), authController.getTeamMemberPermissions);
+router.put("/team/:id/permissions", authMiddleware, roleMiddleware(["admin"]), authController.updateTeamMemberPermissions);
 
 router.get("/users-test", async (_req, res) => {
   res.status(200).json({
