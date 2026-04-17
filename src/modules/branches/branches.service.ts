@@ -1,6 +1,6 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { db } from "../../db";
-import { branches, cases, users } from "../../db/schema";
+import { branches, cases, customers, devices, users } from "../../db/schema";
 import { CASE_STATUSES } from "../cases/constants";
 
 type BranchInput = {
@@ -104,9 +104,16 @@ export const branchesService = {
         status: cases.status,
         sourceType: cases.sourceType,
         customerComplaint: cases.customerComplaint,
+        branchNotes: cases.branchNotes,
+        customerName: customers.name,
+        deviceApplianceType: devices.applianceType,
+        deviceBrand: devices.brand,
+        deviceModelName: devices.modelName,
         createdAt: cases.createdAt,
       })
       .from(cases)
+      .leftJoin(customers, eq(cases.customerId, customers.id))
+      .leftJoin(devices, eq(cases.deviceId, devices.id))
       .where(eq(cases.branchId, id))
       .orderBy(desc(cases.createdAt));
 
@@ -123,6 +130,10 @@ export const branchesService = {
       .select({
         totalCases: sql<number>`count(*)::int`,
         awaitingCenterReceipt: sql<number>`count(*) filter (where ${cases.status} = ${CASE_STATUSES.AWAITING_CENTER_RECEIPT})::int`,
+        newCases: sql<number>`count(*) filter (where ${cases.status} in (${CASE_STATUSES.RECEIVED}, 'new'))::int`,
+        repairedCases: sql<number>`count(*) filter (where ${cases.status} = ${CASE_STATUSES.REPAIRED})::int`,
+        notRepairableCases: sql<number>`count(*) filter (where ${cases.status} = ${CASE_STATUSES.NOT_REPAIRABLE})::int`,
+        completedOperations: sql<number>`count(*) filter (where ${cases.operationFinalizedAt} is not null or ${cases.status} = ${CASE_STATUSES.COMPLETED})::int`,
         activeCases: sql<number>`count(*) filter (where ${cases.operationFinalizedAt} is null)::int`,
         completedCases: sql<number>`count(*) filter (where ${cases.operationFinalizedAt} is not null or ${cases.status} = ${CASE_STATUSES.COMPLETED})::int`,
       })
@@ -132,6 +143,10 @@ export const branchesService = {
     return summary ?? {
       totalCases: 0,
       awaitingCenterReceipt: 0,
+      newCases: 0,
+      repairedCases: 0,
+      notRepairableCases: 0,
+      completedOperations: 0,
       activeCases: 0,
       completedCases: 0,
     };

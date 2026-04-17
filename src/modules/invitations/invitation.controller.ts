@@ -33,7 +33,12 @@ const canCreateInvitationForRole = (
   if (!creatorRole) return false;
   if (creatorRole === "admin") return true;
   if (creatorRole === "maintenance_manager") {
-    return invitedRole === "technician" || invitedRole === "store_manager" || invitedRole === "receptionist";
+    return (
+      invitedRole === "technician" ||
+      invitedRole === "store_manager" ||
+      invitedRole === "receptionist" ||
+      invitedRole === "branch_user"
+    );
   }
 
   if (creatorRole === "technician_manager") {

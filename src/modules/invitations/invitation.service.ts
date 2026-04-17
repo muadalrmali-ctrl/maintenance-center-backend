@@ -1,10 +1,10 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { env } from "../../config/env";
 import { db } from "../../db";
-import { permissions, staffInvitations, userPermissions, users } from "../../db/schema";
+import { branches, permissions, staffInvitations, userPermissions, users } from "../../db/schema";
 import { getDefaultPermissionKeysForRole } from "../../lib/permissions";
 import { permissionsService } from "../permissions/permissions.service";
 
@@ -25,6 +25,7 @@ type CreateInvitationInput = {
   email?: string;
   phone?: string;
   notes?: string;
+  branchId?: number | null;
   expiresInDays?: number;
   invitedBy: number;
 };
@@ -77,6 +78,8 @@ const toInvitationRecord = <
     email: string | null;
     phone: string | null;
     notes: string | null;
+    branchId?: number | null;
+    branchName?: string | null;
     expiresAt: Date;
     acceptedAt?: Date | null;
     revokedAt?: Date | null;
@@ -116,6 +119,22 @@ export const invitationService = {
       }
     }
 
+    if (input.role === "branch_user") {
+      if (!input.branchId) {
+        throw new Error("Branch user invitation requires a branch");
+      }
+
+      const branchRecord = await db
+        .select({ id: branches.id })
+        .from(branches)
+        .where(eq(branches.id, input.branchId))
+        .limit(1);
+
+      if (!branchRecord[0]) {
+        throw new Error("Selected branch was not found");
+      }
+    }
+
     const records = await db
       .insert(staffInvitations)
       .values({
@@ -127,6 +146,7 @@ export const invitationService = {
         email: normalizedEmail,
         phone: input.phone?.trim() || null,
         notes: input.notes?.trim() || null,
+        branchId: input.role === "branch_user" ? input.branchId ?? null : null,
         invitedBy: input.invitedBy,
         expiresAt,
       })
@@ -139,13 +159,28 @@ export const invitationService = {
         email: staffInvitations.email,
         phone: staffInvitations.phone,
         notes: staffInvitations.notes,
+        branchId: staffInvitations.branchId,
+        branchName: sql<string | null>`null`,
         expiresAt: staffInvitations.expiresAt,
         acceptedAt: staffInvitations.acceptedAt,
         revokedAt: staffInvitations.revokedAt,
         createdAt: staffInvitations.createdAt,
       });
 
-    return toInvitationRecord(records[0]);
+    const branchName = input.branchId
+      ? (
+          await db
+            .select({ name: branches.name })
+            .from(branches)
+            .where(eq(branches.id, input.branchId))
+            .limit(1)
+        )[0]?.name ?? null
+      : null;
+
+    return toInvitationRecord({
+      ...records[0],
+      branchName,
+    });
   },
 
   async listInvitations() {
@@ -159,6 +194,8 @@ export const invitationService = {
         email: staffInvitations.email,
         phone: staffInvitations.phone,
         notes: staffInvitations.notes,
+        branchId: staffInvitations.branchId,
+        branchName: branches.name,
         invitedBy: staffInvitations.invitedBy,
         acceptedBy: staffInvitations.acceptedBy,
         expiresAt: staffInvitations.expiresAt,
@@ -168,6 +205,7 @@ export const invitationService = {
         updatedAt: staffInvitations.updatedAt,
       })
       .from(staffInvitations)
+      .leftJoin(branches, eq(staffInvitations.branchId, branches.id))
       .orderBy(desc(staffInvitations.createdAt));
 
     return records.map((record) => toInvitationRecord(record));
@@ -185,11 +223,14 @@ export const invitationService = {
         email: staffInvitations.email,
         phone: staffInvitations.phone,
         notes: staffInvitations.notes,
+        branchId: staffInvitations.branchId,
+        branchName: branches.name,
         expiresAt: staffInvitations.expiresAt,
         acceptedAt: staffInvitations.acceptedAt,
         revokedAt: staffInvitations.revokedAt,
       })
       .from(staffInvitations)
+      .leftJoin(branches, eq(staffInvitations.branchId, branches.id))
       .where(
         and(
           eq(staffInvitations.token, token),
@@ -272,12 +313,14 @@ export const invitationService = {
           phone: input.phone.trim(),
           password: hashedPassword,
           role: invitation.role,
+          branchId: invitation.role === "branch_user" ? invitation.branchId ?? null : null,
         })
         .returning({
           id: users.id,
           name: users.name,
           email: users.email,
           role: users.role,
+          branchId: users.branchId,
           createdAt: users.createdAt,
         });
 
@@ -324,6 +367,7 @@ export const invitationService = {
           name: user.name,
           email: user.email,
           role: user.role,
+          branchId: user.branchId ?? null,
         },
         env.JWT_SECRET,
         {
@@ -334,6 +378,15 @@ export const invitationService = {
       return {
         user: {
           ...user,
+          branchName: invitation.branchId
+            ? (
+                await tx
+                  .select({ name: branches.name })
+                  .from(branches)
+                  .where(eq(branches.id, invitation.branchId))
+                  .limit(1)
+              )[0]?.name ?? null
+            : null,
           permissions: await permissionsService.getUserPermissionKeys(user.id, user.role),
         },
         token: authToken,
@@ -381,6 +434,8 @@ export const invitationService = {
         email: staffInvitations.email,
         phone: staffInvitations.phone,
         notes: staffInvitations.notes,
+        branchId: staffInvitations.branchId,
+        branchName: sql<string | null>`null`,
         invitedBy: staffInvitations.invitedBy,
         acceptedBy: staffInvitations.acceptedBy,
         expiresAt: staffInvitations.expiresAt,

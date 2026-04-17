@@ -63,6 +63,7 @@ export const staffInvitations = pgTable("staff_invitations", {
   email: text("email"),
   phone: text("phone"),
   notes: text("notes"),
+  branchId: integer("branch_id").references(() => branches.id),
   invitedBy: integer("invited_by").references(() => users.id),
   acceptedBy: integer("accepted_by").references(() => users.id),
   expiresAt: timestamp("expires_at").notNull(),

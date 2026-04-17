@@ -1,18 +1,15 @@
 import { Router } from "express";
 import { deviceController } from "./device.controller";
 import { authMiddleware } from "../../middlewares/auth";
-import { roleMiddleware } from "../../middlewares/role";
+import { requirePermission } from "../../middlewares/permission";
 
 const router = Router();
 
 router.use(authMiddleware);
 
-// Receptionist can read devices
-router.get("/", roleMiddleware(["receptionist"]), deviceController.getAll);
-router.get("/:id", roleMiddleware(["receptionist"]), deviceController.getById);
-
-// Receptionists can register devices while opening new maintenance cases.
-router.post("/", roleMiddleware(["admin", "receptionist"]), deviceController.create);
-router.patch("/:id", roleMiddleware(["admin"]), deviceController.update);
+router.get("/", requirePermission("accounting.devices.view"), deviceController.getAll);
+router.get("/:id", requirePermission("accounting.devices.view"), deviceController.getById);
+router.post("/", requirePermission("accounting.devices.manage"), deviceController.create);
+router.patch("/:id", requirePermission("accounting.devices.manage"), deviceController.update);
 
 export default router;
