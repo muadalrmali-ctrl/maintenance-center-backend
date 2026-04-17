@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { casePartsService } from "./case-parts.service";
 import { addPartSchema } from "./case-parts.validation";
+import { caseService } from "../cases/case.service";
 
 export const casePartsController = {
   async requestPart(req: Request, res: Response) {
@@ -86,6 +87,19 @@ export const casePartsController = {
         return res.status(400).json({
           success: false,
           message: "Invalid case ID",
+        });
+      }
+
+      const caseData = await caseService.getCaseById(caseId, {
+        role: req.user?.role,
+        userId: req.user?.id ?? null,
+        branchId: req.user?.branchId,
+      });
+
+      if (!caseData) {
+        return res.status(404).json({
+          success: false,
+          message: "Case not found",
         });
       }
 

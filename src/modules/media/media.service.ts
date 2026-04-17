@@ -13,7 +13,17 @@ type CreateMediaInput = {
 type UploadCaseMediaFileInput = {
   entityType: "case";
   entityId: number;
-  mediaCategory: "post_repair" | "damaged_part" | "waiting_part";
+  mediaCategory:
+    | "branch_handoff"
+    | "center_receipt"
+    | "repair_completion"
+    | "not_repairable"
+    | "product_image"
+    | "damaged_part_image"
+    | "general"
+    | "waiting_part"
+    | "post_repair"
+    | "damaged_part";
   fileName: string;
   mimeType: string;
   fileSizeBytes: number;
@@ -24,7 +34,14 @@ type MediaAsset = {
   id: number;
   entityType: string;
   entityId: number;
+  caseId: number | null;
+  category: string | null;
+  fileName: string | null;
+  filePath: string | null;
+  publicUrl: string | null;
   fileUrl: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
   fileType: string;
   uploadedBy: number;
   createdAt: Date | null;
@@ -39,7 +56,7 @@ const MAX_UPLOAD_SIZE_BYTES: Record<"image" | "video" | "audio", number> = {
 const ALLOWED_MIME_TYPES: Record<"image" | "video" | "audio", string[]> = {
   image: ["image/jpeg", "image/png", "image/webp", "image/gif"],
   video: ["video/mp4", "video/quicktime", "video/webm"],
-  audio: ["audio/mpeg", "audio/mp3", "audio/ogg", "audio/wav", "audio/webm"],
+  audio: ["audio/mpeg", "audio/mp3", "audio/ogg", "audio/wav", "audio/webm", "audio/mp4", "audio/x-m4a", "audio/aac"],
 };
 
 const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, "");
@@ -88,16 +105,22 @@ const ensureSupabaseConfig = () => {
 
 const buildStoragePath = (input: UploadCaseMediaFileInput) => {
   const now = new Date();
+  const mediaKind = getMediaKind(input.mimeType);
   const safeFileName = sanitizeSegment(input.fileName.replace(/\.[^.]+$/, ""));
   const extension = sanitizeSegment(input.fileName.split(".").pop() || input.mimeType.split("/").pop() || "bin");
   const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const normalizedCategory =
+    input.mediaCategory === "post_repair"
+      ? "repair_completion"
+      : input.mediaCategory === "damaged_part"
+        ? "damaged_part_image"
+        : input.mediaCategory;
 
   return [
     "cases",
     String(input.entityId),
-    input.mediaCategory,
-    String(now.getUTCFullYear()),
-    String(now.getUTCMonth() + 1).padStart(2, "0"),
+    `${mediaKind}s`,
+    normalizedCategory,
     `${uniqueSuffix}-${safeFileName}.${extension}`,
   ].join("/");
 };
@@ -174,7 +197,19 @@ export const mediaService = {
       .values({
         entityType: input.entityType,
         entityId: input.entityId,
+        caseId: input.entityType === "case" ? input.entityId : null,
+        category:
+          input.mediaCategory === "post_repair"
+            ? "repair_completion"
+            : input.mediaCategory === "damaged_part"
+              ? "damaged_part_image"
+              : input.mediaCategory,
+        fileName: input.fileName,
+        filePath: objectPath,
+        publicUrl,
         fileUrl: publicUrl,
+        mimeType: input.mimeType,
+        sizeBytes: fileBuffer.length,
         fileType: mediaKind,
         uploadedBy,
       })

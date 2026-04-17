@@ -14,7 +14,8 @@ type StaffRole =
   | "receptionist"
   | "technician_manager"
   | "maintenance_manager"
-  | "admin";
+  | "admin"
+  | "branch_user";
 
 type InvitationStatus = "pending" | "used" | "expired" | "revoked";
 

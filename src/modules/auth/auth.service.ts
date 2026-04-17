@@ -3,7 +3,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../db";
-import { caseStatusHistory, cases, customers, devices, inventoryItems, inventoryMovements, invoices, staffInvitations, users } from "../../db/schema";
+import { branches, caseStatusHistory, cases, customers, devices, inventoryItems, inventoryMovements, invoices, staffInvitations, users } from "../../db/schema";
 import { env } from "../../config/env";
 import { APP_ROLES, TEAM_ROLES, isAppRole, roleLabels, type AppRole } from "../../lib/roles";
 import { permissionsService } from "../permissions/permissions.service";
@@ -14,6 +14,7 @@ type RegisterUserInput = {
   password: string;
   phone?: string;
   role?: string;
+  branchId?: number | null;
 };
 
 type LoginUserInput = {
@@ -26,6 +27,7 @@ type ActivateStaffAccountInput = {
   email: string;
   role: AppRole;
   temporaryPassword?: string;
+  branchId?: number | null;
 };
 
 type LoginResult = {
@@ -35,6 +37,8 @@ type LoginResult = {
     email: string;
     role: string;
     permissions: string[];
+    branchId: number | null;
+    branchName: string | null;
     createdAt: Date | null;
   };
   token: string;
@@ -187,9 +191,12 @@ export const authService = {
         email: users.email,
         phone: users.phone,
         role: users.role,
+        branchId: users.branchId,
+        branchName: branches.name,
         createdAt: users.createdAt,
       })
       .from(users)
+      .leftJoin(branches, eq(users.branchId, branches.id))
       .where(inArray(users.role, [...TEAM_ROLES]));
   },
 
@@ -201,9 +208,12 @@ export const authService = {
         email: users.email,
         phone: users.phone,
         role: users.role,
+        branchId: users.branchId,
+        branchName: branches.name,
         createdAt: users.createdAt,
       })
       .from(users)
+      .leftJoin(branches, eq(users.branchId, branches.id))
       .where(inArray(users.role, ["technician", "technician_manager"]));
   },
 
@@ -576,7 +586,7 @@ export const authService = {
   },
 
   async registerUser(input: RegisterUserInput) {
-    const { name, password, phone, role = "technician" } = input;
+    const { name, password, phone, role = "technician", branchId } = input;
     const email = normalizeEmail(input.email);
 
     if (!isAppRole(role)) {
@@ -593,12 +603,14 @@ export const authService = {
         password: hashedPassword,
         phone: phone?.trim() || null,
         role,
+        branchId: role === "branch_user" ? branchId ?? null : null,
       })
       .returning({
         id: users.id,
         name: users.name,
         email: users.email,
         role: users.role,
+        branchId: users.branchId,
         createdAt: users.createdAt,
       });
 
@@ -610,8 +622,18 @@ export const authService = {
   async loginUser(data: LoginUserInput): Promise<LoginResult> {
     const email = normalizeEmail(data.email);
     const foundUsers = await db
-      .select()
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        password: users.password,
+        role: users.role,
+        branchId: users.branchId,
+        createdAt: users.createdAt,
+        branchName: branches.name,
+      })
       .from(users)
+      .leftJoin(branches, eq(users.branchId, branches.id))
       .where(eq(users.email, email))
       .limit(1);
 
@@ -649,6 +671,8 @@ export const authService = {
         email: user.email,
         role: user.role,
         permissions,
+        branchId: user.branchId ?? null,
+        branchName: user.branchName ?? null,
         createdAt: user.createdAt,
       },
       token,
@@ -701,6 +725,7 @@ export const authService = {
             email,
             password: hashedPassword,
             role: account.role,
+            branchId: account.role === "branch_user" ? account.branchId ?? null : null,
           })
           .where(eq(users.id, existingUsers[0].id))
           .returning({
@@ -731,6 +756,7 @@ export const authService = {
           email,
           password: hashedPassword,
           role: account.role,
+          branchId: account.role === "branch_user" ? account.branchId ?? null : null,
         })
         .returning({
           id: users.id,

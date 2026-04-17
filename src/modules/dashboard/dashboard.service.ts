@@ -1,6 +1,7 @@
 import { db } from "../../db";
-import { cases, customers, devices, inventoryItems, invoices } from "../../db/schema";
+import { branches, cases, customers, devices, inventoryItems, invoices } from "../../db/schema";
 import { eq, sql } from "drizzle-orm";
+import { CASE_STATUSES } from "../cases/constants";
 
 type DashboardSummary = {
   totalCases: number;
@@ -8,10 +9,12 @@ type DashboardSummary = {
   completedCases: number;
   totalCustomers: number;
   totalDevices: number;
+  totalBranches: number;
   totalInventoryItems: number;
   lowStockItems: number;
   totalInvoices: number;
   pendingInvoices: number;
+  awaitingCenterReceiptCases: number;
 };
 
 export const dashboardService = {
@@ -43,6 +46,10 @@ export const dashboardService = {
       .select({ count: sql<number>`count(*)` })
       .from(devices);
 
+    const [branchesResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(branches);
+
     const [inventoryResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(inventoryItems)
@@ -62,16 +69,23 @@ export const dashboardService = {
       .from(invoices)
       .where(sql`${invoices.status} IN ('draft', 'issued')`);
 
+    const [awaitingCenterReceiptResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(cases)
+      .where(eq(cases.status, CASE_STATUSES.AWAITING_CENTER_RECEIPT));
+
     return {
       totalCases,
       activeCases,
       completedCases,
       totalCustomers: customersResult.count,
       totalDevices: devicesResult.count,
+      totalBranches: branchesResult.count,
       totalInventoryItems: inventoryResult.count,
       lowStockItems: lowStockResult.count,
       totalInvoices: invoicesResult.count,
       pendingInvoices: pendingInvoicesResult.count,
+      awaitingCenterReceiptCases: awaitingCenterReceiptResult.count,
     };
   },
 

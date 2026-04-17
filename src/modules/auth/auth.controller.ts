@@ -155,7 +155,7 @@ export const authController = {
 
   async register(req: Request, res: Response) {
     try {
-      const { name, email, password, role } = req.body;
+      const { name, email, password, role, branchId } = req.body;
 
       if (!name || !email || !password) {
         return res.status(400).json({
@@ -176,6 +176,7 @@ export const authController = {
         email,
         password,
         role,
+        branchId,
       });
 
       return res.status(201).json({
@@ -209,12 +210,14 @@ export const authController = {
           email?: unknown;
           role?: unknown;
           temporaryPassword?: unknown;
+          branchId?: unknown;
         }) =>
           !account ||
           typeof account.name !== "string" ||
           typeof account.email !== "string" ||
           typeof account.role !== "string" ||
-          (account.temporaryPassword != null && typeof account.temporaryPassword !== "string")
+          (account.temporaryPassword != null && typeof account.temporaryPassword !== "string") ||
+          (account.branchId != null && typeof account.branchId !== "number")
       );
 
       if (invalidAccount) {

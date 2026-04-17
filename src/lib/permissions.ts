@@ -2,6 +2,7 @@ import type { AppRole } from "./roles";
 
 export type PermissionGroup =
   | "dashboard"
+  | "branches"
   | "cases"
   | "maintenance_operations"
   | "inventory"
@@ -25,12 +26,36 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
     description: "الوصول إلى لوحة التحكم الرئيسية.",
   },
   {
+    key: "branches.view",
+    label: "عرض الفروع",
+    group: "branches",
+    description: "الوصول إلى قائمة الفروع وتفاصيلها.",
+  },
+  {
+    key: "branches.manage",
+    label: "إدارة الفروع",
+    group: "branches",
+    parentKey: "branches.view",
+  },
+  {
+    key: "branches.statistics.view",
+    label: "عرض إحصائيات الفروع",
+    group: "branches",
+    parentKey: "branches.view",
+  },
+  {
     key: "cases.view",
     label: "عرض صفحة الحالات",
     group: "cases",
     description: "الوصول إلى صفحة الحالات ولوحة سير العمل.",
   },
   { key: "cases.create", label: "إنشاء حالة جديدة", group: "cases", parentKey: "cases.view" },
+  {
+    key: "cases.column.awaiting_center_receipt.view",
+    label: "عرض عمود بانتظار الاستلام في المركز",
+    group: "cases",
+    parentKey: "cases.view",
+  },
   { key: "cases.column.new.view", label: "عرض عمود حالة جديدة", group: "cases", parentKey: "cases.view" },
   { key: "cases.column.waiting.view", label: "عرض عمود بانتظار القطعة", group: "cases", parentKey: "cases.view" },
   { key: "cases.column.diagnosis.view", label: "عرض عمود قيد التشخيص", group: "cases", parentKey: "cases.view" },
@@ -70,6 +95,12 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
     label: "تجهيز بدء التنفيذ",
     group: "cases",
     parentKey: "cases.column.approval_part_delivery.view",
+  },
+  {
+    key: "cases.awaiting_center_receipt.receive",
+    label: "تأكيد الاستلام في المركز",
+    group: "cases",
+    parentKey: "cases.column.awaiting_center_receipt.view",
   },
   { key: "cases.column.in_progress.view", label: "عرض عمود قيد التنفيذ", group: "cases", parentKey: "cases.view" },
   {
@@ -152,12 +183,7 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { key: "inventory.item.create", label: "إضافة قطعة", group: "inventory", parentKey: "inventory.admin_actions" },
   { key: "inventory.item.edit", label: "تعديل قطعة", group: "inventory", parentKey: "inventory.admin_actions" },
   { key: "inventory.item.delete", label: "حذف / أرشفة قطعة", group: "inventory", parentKey: "inventory.admin_actions" },
-  {
-    key: "inventory.item.quantity.update",
-    label: "تعديل كمية المخزون",
-    group: "inventory",
-    parentKey: "inventory.admin_actions",
-  },
+  { key: "inventory.item.quantity.update", label: "تعديل كمية المخزون", group: "inventory", parentKey: "inventory.admin_actions" },
   { key: "sales.view", label: "عرض صفحة المبيعات", group: "sales" },
   { key: "sales.create", label: "إنشاء بيع مباشر", group: "sales", parentKey: "sales.view" },
   { key: "sales.confirm", label: "تأكيد البيع وخروج المخزون", group: "sales", parentKey: "sales.view" },
@@ -176,6 +202,16 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { key: "accounting.view", label: "عرض صفحة المحاسبة", group: "accounting" },
   { key: "accounting.customers.view", label: "عرض قسم العملاء", group: "accounting", parentKey: "accounting.view" },
   { key: "accounting.team.view", label: "عرض قسم الفريق", group: "accounting", parentKey: "accounting.view" },
+  { key: "accounting.suppliers.view", label: "عرض قسم الموردين", group: "accounting", parentKey: "accounting.view" },
+  { key: "accounting.suppliers.manage", label: "إدارة الموردين", group: "accounting", parentKey: "accounting.suppliers.view" },
+  { key: "accounting.devices.view", label: "عرض قسم الأجهزة", group: "accounting", parentKey: "accounting.view" },
+  { key: "accounting.devices.manage", label: "إدارة الأجهزة", group: "accounting", parentKey: "accounting.devices.view" },
+  { key: "accounting.purchases.view", label: "عرض قسم المشتريات", group: "accounting", parentKey: "accounting.view" },
+  { key: "accounting.purchases.manage", label: "إدارة المشتريات", group: "accounting", parentKey: "accounting.purchases.view" },
+  { key: "accounting.expenses.view", label: "عرض المصاريف اليومية", group: "accounting", parentKey: "accounting.view" },
+  { key: "accounting.expenses.manage", label: "إدارة المصاريف اليومية", group: "accounting", parentKey: "accounting.expenses.view" },
+  { key: "accounting.daily_cash.view", label: "عرض اليومية النقدية", group: "accounting", parentKey: "accounting.view" },
+  { key: "accounting.daily_cash.manage", label: "إدارة اليومية النقدية", group: "accounting", parentKey: "accounting.daily_cash.view" },
 ];
 
 export const ALL_PERMISSION_KEYS = PERMISSION_CATALOG.map((permission) => permission.key);
@@ -193,6 +229,8 @@ const DEFAULT_RECEPTIONIST_PERMISSIONS = [
   "dashboard.view",
   "cases.view",
   "cases.create",
+  "cases.column.awaiting_center_receipt.view",
+  "cases.awaiting_center_receipt.receive",
   "cases.column.new.view",
   "cases.column.waiting.view",
   "cases.column.diagnosis.view",
@@ -225,11 +263,22 @@ const DEFAULT_RECEPTIONIST_PERMISSIONS = [
   "accounting.view",
   "accounting.customers.view",
   "accounting.team.view",
+  "accounting.suppliers.view",
+  "accounting.suppliers.manage",
+  "accounting.devices.view",
+  "accounting.devices.manage",
+  "accounting.purchases.view",
+  "accounting.purchases.manage",
+  "accounting.expenses.view",
+  "accounting.expenses.manage",
+  "accounting.daily_cash.view",
+  "accounting.daily_cash.manage",
 ];
 
 const DEFAULT_TECHNICIAN_PERMISSIONS = [
   "dashboard.view",
   "cases.view",
+  "cases.column.awaiting_center_receipt.view",
   "cases.column.new.view",
   "cases.column.waiting.view",
   "cases.column.diagnosis.view",
@@ -259,6 +308,7 @@ const DEFAULT_TECHNICIAN_PERMISSIONS = [
 const DEFAULT_STORE_MANAGER_PERMISSIONS = [
   "dashboard.view",
   "cases.view",
+  "cases.column.awaiting_center_receipt.view",
   "cases.column.new.view",
   "cases.column.waiting.view",
   "cases.column.diagnosis.view",
@@ -291,6 +341,8 @@ const DEFAULT_STORE_MANAGER_PERMISSIONS = [
 const DEFAULT_TECHNICIAN_MANAGER_PERMISSIONS = [
   "dashboard.view",
   "cases.view",
+  "cases.column.awaiting_center_receipt.view",
+  "cases.awaiting_center_receipt.receive",
   "cases.column.new.view",
   "cases.column.waiting.view",
   "cases.column.diagnosis.view",
@@ -323,16 +375,58 @@ const DEFAULT_TECHNICIAN_MANAGER_PERMISSIONS = [
   "reports.operations_workflow.view",
   "accounting.view",
   "accounting.team.view",
+  "accounting.suppliers.view",
+  "accounting.purchases.view",
+  "accounting.expenses.view",
+  "accounting.daily_cash.view",
 ];
 
 const DEFAULT_MAINTENANCE_MANAGER_PERMISSIONS = [
   ...DEFAULT_TECHNICIAN_MANAGER_PERMISSIONS,
   "cases.create",
+  "branches.view",
+  "branches.manage",
+  "branches.statistics.view",
   "sales.view",
   "sales.create",
   "reports.sales.view",
   "reports.customers.view",
   "accounting.customers.view",
+  "accounting.suppliers.view",
+  "accounting.suppliers.manage",
+  "accounting.devices.view",
+  "accounting.devices.manage",
+  "accounting.purchases.view",
+  "accounting.purchases.manage",
+  "accounting.expenses.view",
+  "accounting.expenses.manage",
+  "accounting.daily_cash.view",
+  "accounting.daily_cash.manage",
+];
+
+const DEFAULT_BRANCH_USER_PERMISSIONS = [
+  "cases.view",
+  "cases.create",
+  "cases.column.awaiting_center_receipt.view",
+  "cases.column.new.view",
+  "cases.column.waiting.view",
+  "cases.column.diagnosis.view",
+  "cases.diagnosis.invoice.preview",
+  "cases.column.approval_part_delivery.view",
+  "cases.approval.invoice.preview",
+  "cases.column.in_progress.view",
+  "cases.in_progress.execution.preview",
+  "cases.in_progress.invoice.preview",
+  "cases.column.repaired.view",
+  "cases.repaired.summary.view",
+  "cases.repaired.invoice.preview",
+  "cases.column.not_repairable.view",
+  "maintenance_operations.view",
+  "maintenance_operations.quality_saved_data.view",
+  "maintenance_operations.final_invoice.view",
+  "maintenance_operations.after_repair_image.view",
+  "maintenance_operations.after_repair_video.view",
+  "maintenance_operations.damaged_part_image.view",
 ];
 
 export const DEFAULT_ROLE_PERMISSION_KEYS: Record<AppRole, string[]> = {
@@ -342,6 +436,7 @@ export const DEFAULT_ROLE_PERMISSION_KEYS: Record<AppRole, string[]> = {
   store_manager: DEFAULT_STORE_MANAGER_PERMISSIONS,
   technician_manager: DEFAULT_TECHNICIAN_MANAGER_PERMISSIONS,
   maintenance_manager: DEFAULT_MAINTENANCE_MANAGER_PERMISSIONS,
+  branch_user: DEFAULT_BRANCH_USER_PERMISSIONS,
 };
 
 export const getDefaultPermissionKeysForRole = (role: AppRole) =>

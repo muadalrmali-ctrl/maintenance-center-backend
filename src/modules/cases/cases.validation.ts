@@ -3,6 +3,10 @@ import { ALLOWED_TRANSITIONS, CASE_STATUSES } from "./constants";
 
 export const createCaseSchema = z.object({
   caseType: z.enum(["internal", "external"]).optional(),
+  sourceType: z.enum(["main_center", "branch"]).optional(),
+  branchId: z.number().int().positive().optional().nullable(),
+  branchCreatedBy: z.number().int().positive().optional().nullable(),
+  branchNotes: z.string().optional(),
   customerId: z.number().int().positive().optional(),
   customer: z.object({
     name: z.string().min(1),
@@ -32,10 +36,17 @@ export const createCaseSchema = z.object({
 }).refine((data) => data.deviceId || data.device, {
   message: "deviceId or device is required",
   path: ["device"],
+}).refine((data) => data.sourceType !== "branch" || !!data.branchId, {
+  message: "branchId is required when sourceType is branch",
+  path: ["branchId"],
 });
 
 export const updateCaseSchema = z.object({
   caseType: z.enum(["internal", "external"]).optional(),
+  sourceType: z.enum(["main_center", "branch"]).optional(),
+  branchId: z.number().int().positive().optional().nullable(),
+  branchCreatedBy: z.number().int().positive().optional().nullable(),
+  branchNotes: z.string().optional().nullable(),
   deviceId: z.number().int().positive().optional(),
   customerComplaint: z.string().min(1).optional(),
   priority: z.enum(["منخفضة", "متوسطة", "مرتفعة", "عاجلة", "حالة حادثة"]).optional(),
@@ -66,6 +77,9 @@ export const updateCaseSchema = z.object({
   readyNotificationMessage: z.string().optional().nullable(),
   readyNotificationChannel: z.string().optional().nullable(),
   readyNotificationSentAt: z.string().optional().nullable(),
+  centerReceivedAt: z.string().optional().nullable(),
+  centerReceivedBy: z.number().int().positive().optional().nullable(),
+  centerReceiptNotes: z.string().optional().nullable(),
   customerReceivedAt: z.string().optional().nullable(),
   operationFinalizedAt: z.string().optional().nullable(),
   assignedTechnicianId: z.number().int().positive().optional().nullable(),
@@ -99,6 +113,10 @@ export const executionActionSchema = z.object({
   notes: z.string().optional().nullable(),
   latestMessage: z.string().optional().nullable(),
   latestMessageChannel: z.string().optional().nullable(),
+});
+
+export const centerReceiptSchema = z.object({
+  notes: z.string().optional().nullable(),
 });
 
 export const repairQualitySchema = z.object({

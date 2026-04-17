@@ -8,6 +8,7 @@ import {
   executionActionSchema,
   repairQualitySchema,
   readyNotificationSchema,
+  centerReceiptSchema,
 } from "./cases.validation";
 import { requestHasPermission } from "../../middlewares/permission";
 
@@ -116,8 +117,19 @@ export const caseController = {
         });
       }
 
+      if (req.user?.role === "branch_user" && !req.user.branchId) {
+        return res.status(403).json({
+          success: false,
+          message: "Branch user is not linked to a branch",
+        });
+      }
+
       const caseData = await caseService.createCase({
         caseType: validation.data.caseType,
+        sourceType: req.user?.role === "branch_user" ? "branch" : validation.data.sourceType,
+        branchId: req.user?.role === "branch_user" ? req.user.branchId ?? null : validation.data.branchId,
+        branchCreatedBy: req.user?.role === "branch_user" ? createdBy : validation.data.branchCreatedBy,
+        branchNotes: validation.data.branchNotes,
         customerId: validation.data.customerId,
         customer: validation.data.customer,
         deviceId: validation.data.deviceId,
@@ -155,6 +167,7 @@ export const caseController = {
       const cases = await caseService.getCases({
         role: req.user?.role,
         userId: getRequestUserId(req),
+        branchId: req.user?.branchId,
       });
 
       return res.status(200).json({
@@ -186,6 +199,7 @@ export const caseController = {
       const caseData = await caseService.getCaseById(id, {
         role: req.user?.role,
         userId: getRequestUserId(req),
+        branchId: req.user?.branchId,
       });
 
       if (!caseData) {
@@ -245,6 +259,10 @@ export const caseController = {
 
       const caseData = await caseService.updateCase(id, {
         caseType: validation.data.caseType,
+        sourceType: validation.data.sourceType,
+        branchId: validation.data.branchId,
+        branchCreatedBy: validation.data.branchCreatedBy,
+        branchNotes: validation.data.branchNotes,
         deviceId: validation.data.deviceId,
         customerComplaint: validation.data.customerComplaint,
         priority: validation.data.priority,
@@ -275,6 +293,9 @@ export const caseController = {
         readyNotificationMessage: validation.data.readyNotificationMessage,
         readyNotificationChannel: validation.data.readyNotificationChannel,
         readyNotificationSentAt: validation.data.readyNotificationSentAt ? new Date(validation.data.readyNotificationSentAt) : null,
+        centerReceivedAt: validation.data.centerReceivedAt ? new Date(validation.data.centerReceivedAt) : null,
+        centerReceivedBy: validation.data.centerReceivedBy,
+        centerReceiptNotes: validation.data.centerReceiptNotes,
         customerReceivedAt: validation.data.customerReceivedAt ? new Date(validation.data.customerReceivedAt) : null,
         operationFinalizedAt: validation.data.operationFinalizedAt ? new Date(validation.data.operationFinalizedAt) : null,
         assignedTechnicianId: validation.data.assignedTechnicianId,
@@ -408,6 +429,7 @@ export const caseController = {
       const operations = await caseService.getMaintenanceOperations({
         role: req.user?.role,
         userId: getRequestUserId(req),
+        branchId: req.user?.branchId,
       });
 
       return res.status(200).json({
@@ -436,6 +458,7 @@ export const caseController = {
       const operation = await caseService.getMaintenanceOperationById(id, {
         role: req.user?.role,
         userId: getRequestUserId(req),
+        branchId: req.user?.branchId,
       });
 
       if (!operation) {
@@ -742,6 +765,70 @@ export const caseController = {
       return res.status(400).json({
         success: false,
         message: error instanceof Error ? error.message : "Failed to finalize operation",
+      });
+    }
+  },
+
+  async getAwaitingCenterReceipt(req: Request, res: Response) {
+    try {
+      const cases = await caseService.getAwaitingCenterReceiptCases({
+        role: req.user?.role,
+        userId: getRequestUserId(req),
+        branchId: req.user?.branchId,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Awaiting center receipt cases retrieved successfully",
+        data: cases,
+      });
+    } catch (error) {
+      logCaseError("getAwaitingCenterReceipt", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve awaiting center receipt cases",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  async confirmCenterReceipt(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+      const validation = centerReceiptSchema.safeParse(req.body);
+      const changedBy = getRequestUserId(req);
+
+      if (isNaN(id)) {
+        return res.status(400).json({ success: false, message: "Invalid case ID" });
+      }
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: validation.error.issues,
+        });
+      }
+
+      if (!changedBy) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const caseData = await caseService.confirmCenterReceipt(id, {
+        changedBy,
+        notes: validation.data.notes ?? null,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Center receipt confirmed successfully",
+        data: caseData,
+      });
+    } catch (error) {
+      logCaseError("confirmCenterReceipt", error);
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to confirm center receipt",
       });
     }
   },

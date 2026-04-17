@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { mediaService } from "./media.service";
 import { uploadCaseMediaFileSchema, uploadMediaSchema } from "./media.validation";
+import { caseService } from "../cases/case.service";
 
 export const mediaController = {
   async uploadCaseMediaFile(req: Request, res: Response) {
@@ -95,6 +96,22 @@ export const mediaController = {
       }
 
       const entityTypeStr = Array.isArray(entityType) ? entityType[0] : entityType;
+
+      if (entityTypeStr === "case") {
+        const caseAccess = await caseService.getCaseById(entityIdNum, {
+          role: req.user?.role,
+          userId: req.user?.id ?? null,
+          branchId: req.user?.branchId,
+        });
+
+        if (!caseAccess) {
+          return res.status(404).json({
+            success: false,
+            message: "Case not found",
+          });
+        }
+      }
+
       const media = await mediaService.getMediaByEntity(entityTypeStr, entityIdNum);
 
       return res.status(200).json({

@@ -12,7 +12,7 @@ router.post("/login", authController.login);
 router.get(
   "/technicians",
   authMiddleware,
-  requirePermission("cases.approval.prepare_execution"),
+  requirePermission("cases.view"),
   authController.getTechnicians
 );
 router.get(
