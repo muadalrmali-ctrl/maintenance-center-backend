@@ -64,7 +64,6 @@ export const caseServicesController = {
       const caseData = await caseService.getCaseById(caseId, {
         role: req.user?.role,
         userId: req.user?.id ?? null,
-        branchId: req.user?.branchId,
       });
 
       if (!caseData) {

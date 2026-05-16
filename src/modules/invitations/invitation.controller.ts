@@ -36,8 +36,7 @@ const canCreateInvitationForRole = (
     return (
       invitedRole === "technician" ||
       invitedRole === "store_manager" ||
-      invitedRole === "receptionist" ||
-      invitedRole === "branch_user"
+      invitedRole === "receptionist"
     );
   }
 

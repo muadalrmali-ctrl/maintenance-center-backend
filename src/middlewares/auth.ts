@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env";
 import { db } from "../db";
-import { branches, users } from "../db/schema";
+import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { permissionsService } from "../modules/permissions/permissions.service";
 
@@ -50,11 +50,8 @@ export const authMiddleware = async (
         name: users.name,
         email: users.email,
         role: users.role,
-        branchId: users.branchId,
-        branchName: branches.name,
       })
       .from(users)
-      .leftJoin(branches, eq(users.branchId, branches.id))
       .where(eq(users.id, userId))
       .limit(1);
 
@@ -75,8 +72,6 @@ export const authMiddleware = async (
       email: user.email,
       role: user.role,
       permissions,
-      branchId: user.branchId ?? null,
-      branchName: user.branchName ?? null,
       isAdmin: user.role === "admin",
     };
 

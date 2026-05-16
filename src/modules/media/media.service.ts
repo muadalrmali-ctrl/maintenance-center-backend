@@ -14,8 +14,6 @@ type UploadCaseMediaFileInput = {
   entityType: "case";
   entityId: number;
   mediaCategory:
-    | "branch_handoff"
-    | "center_receipt"
     | "repair_completion"
     | "not_repairable"
     | "product_image"

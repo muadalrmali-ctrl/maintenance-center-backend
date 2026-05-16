@@ -11,8 +11,6 @@ export const uploadCaseMediaFileSchema = z.object({
   entityType: z.literal("case"),
   entityId: z.number().int().positive(),
   mediaCategory: z.enum([
-    "branch_handoff",
-    "center_receipt",
     "repair_completion",
     "not_repairable",
     "product_image",

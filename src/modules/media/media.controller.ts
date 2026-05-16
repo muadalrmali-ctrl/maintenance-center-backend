@@ -101,7 +101,6 @@ export const mediaController = {
         const caseAccess = await caseService.getCaseById(entityIdNum, {
           role: req.user?.role,
           userId: req.user?.id ?? null,
-          branchId: req.user?.branchId,
         });
 
         if (!caseAccess) {

@@ -1,18 +1,5 @@
 import { pgTable, serial, text, timestamp, integer, boolean, numeric, uniqueIndex } from "drizzle-orm/pg-core";
 
-export const branches = pgTable("branches", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  code: text("code").notNull().unique(),
-  city: text("city").notNull(),
-  address: text("address"),
-  phone: text("phone"),
-  status: text("status").notNull().default("active"),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -20,7 +7,6 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   phone: text("phone"),
   role: text("role").notNull().default("technician"),
-  branchId: integer("branch_id").references(() => branches.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -63,7 +49,6 @@ export const staffInvitations = pgTable("staff_invitations", {
   email: text("email"),
   phone: text("phone"),
   notes: text("notes"),
-  branchId: integer("branch_id").references(() => branches.id),
   invitedBy: integer("invited_by").references(() => users.id),
   acceptedBy: integer("accepted_by").references(() => users.id),
   expiresAt: timestamp("expires_at").notNull(),
@@ -113,10 +98,6 @@ export const cases = pgTable("cases", {
   id: serial("id").primaryKey(),
   caseCode: text("case_code").notNull().unique(),
   caseType: text("case_type").notNull().default("internal"),
-  sourceType: text("source_type").notNull().default("main_center"),
-  branchId: integer("branch_id").references(() => branches.id),
-  branchCreatedBy: integer("branch_created_by").references(() => users.id),
-  branchNotes: text("branch_notes"),
   customerId: integer("customer_id").notNull().references(() => customers.id),
   deviceId: integer("device_id").notNull().references(() => devices.id),
   status: text("status").notNull().default("received"),
@@ -159,9 +140,6 @@ export const cases = pgTable("cases", {
   readyNotificationMessage: text("ready_notification_message"),
   readyNotificationChannel: text("ready_notification_channel"),
   readyNotificationSentAt: timestamp("ready_notification_sent_at"),
-  centerReceivedAt: timestamp("center_received_at"),
-  centerReceivedBy: integer("center_received_by").references(() => users.id),
-  centerReceiptNotes: text("center_receipt_notes"),
   customerReceivedAt: timestamp("customer_received_at"),
   operationFinalizedAt: timestamp("operation_finalized_at"),
   finalResult: text("final_result"),
@@ -219,72 +197,6 @@ export const inventoryMovements = pgTable("inventory_movements", {
   notes: text("notes"),
   createdBy: integer("created_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const purchases = pgTable("purchases", {
-  id: serial("id").primaryKey(),
-  purchaseCode: text("purchase_code").notNull().unique(),
-  date: timestamp("date").notNull(),
-  supplierId: integer("supplier_id").notNull().references(() => suppliers.id),
-  purchaseType: text("purchase_type").notNull(),
-  paymentMethod: text("payment_method").notNull(),
-  receivingStatus: text("receiving_status").notNull().default("pending"),
-  totalAmount: numeric("total_amount").notNull(),
-  notes: text("notes"),
-  createdBy: integer("created_by").notNull().references(() => users.id),
-  confirmedAt: timestamp("confirmed_at"),
-  confirmedBy: integer("confirmed_by").references(() => users.id),
-  stockAppliedAt: timestamp("stock_applied_at"),
-  stockAppliedBy: integer("stock_applied_by").references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-export const purchaseItems = pgTable("purchase_items", {
-  id: serial("id").primaryKey(),
-  purchaseId: integer("purchase_id").notNull().references(() => purchases.id),
-  itemName: text("item_name").notNull(),
-  itemType: text("item_type").notNull(),
-  inventoryItemId: integer("inventory_item_id").references(() => inventoryItems.id),
-  quantity: integer("quantity").notNull(),
-  unitCost: numeric("unit_cost").notNull(),
-  totalCost: numeric("total_cost").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-export const dailyExpenses = pgTable("daily_expenses", {
-  id: serial("id").primaryKey(),
-  expenseCode: text("expense_code").notNull().unique(),
-  date: timestamp("date").notNull(),
-  category: text("category").notNull(),
-  amount: numeric("amount").notNull(),
-  paymentMethod: text("payment_method").notNull(),
-  beneficiary: text("beneficiary").notNull(),
-  description: text("description").notNull(),
-  receiptImageUrl: text("receipt_image_url"),
-  createdBy: integer("created_by").notNull().references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-export const dailyCashRecords = pgTable("daily_cash_records", {
-  id: serial("id").primaryKey(),
-  cashCode: text("cash_code").notNull().unique(),
-  date: timestamp("date").notNull(),
-  shiftType: text("shift_type").notNull(),
-  collectedAmount: numeric("collected_amount").notNull(),
-  expensesAmount: numeric("expenses_amount").notNull().default("0"),
-  manualAdjustment: numeric("manual_adjustment").notNull().default("0"),
-  netAmount: numeric("net_amount").notNull(),
-  handedToTreasuryAmount: numeric("handed_to_treasury_amount").notNull().default("0"),
-  remainingWithEmployee: numeric("remaining_with_employee").notNull(),
-  handoverStatus: text("handover_status").notNull().default("pending"),
-  employeeId: integer("employee_id").references(() => users.id),
-  createdBy: integer("created_by").notNull().references(() => users.id),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const caseParts = pgTable("case_parts", {

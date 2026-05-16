@@ -1,5 +1,5 @@
 import { db } from "../../db";
-import { branches, caseParts, cases, caseStatusHistory, customers, devices, inventoryItems, inventoryMovements, users } from "../../db/schema";
+import { caseParts, cases, caseStatusHistory, customers, devices, inventoryItems, inventoryMovements, users } from "../../db/schema";
 import { eq, desc, sql, or, isNotNull, isNull, and, notInArray, inArray } from "drizzle-orm";
 import { CaseStatus, CASE_STATUSES } from "./constants";
 import { validateStatusTransition, validateStatusSpecificRules } from "./cases.validation";
@@ -9,10 +9,6 @@ import { invoicesService } from "../invoices/invoices.service";
 
 type CreateCaseInput = {
   caseType?: "internal" | "external";
-  sourceType?: "main_center" | "branch";
-  branchId?: number | null;
-  branchCreatedBy?: number | null;
-  branchNotes?: string;
   customerId?: number;
   customer?: {
     name: string;
@@ -41,10 +37,6 @@ type CreateCaseInput = {
 
 type UpdateCaseInput = {
   caseType?: "internal" | "external";
-  sourceType?: "main_center" | "branch";
-  branchId?: number | null;
-  branchCreatedBy?: number | null;
-  branchNotes?: string | null;
   deviceId?: number;
   customerComplaint?: string;
   priority?: string;
@@ -77,9 +69,6 @@ type UpdateCaseInput = {
   readyNotificationMessage?: string | null;
   readyNotificationChannel?: string | null;
   readyNotificationSentAt?: Date | null;
-  centerReceivedAt?: Date | null;
-  centerReceivedBy?: number | null;
-  centerReceiptNotes?: string | null;
   customerReceivedAt?: Date | null;
   operationFinalizedAt?: Date | null;
   assignedTechnicianId?: number | null;
@@ -138,19 +127,10 @@ type ReadyNotificationInput = {
   mediaUrls?: string[];
 };
 
-type ConfirmCenterReceiptInput = {
-  changedBy: number;
-  notes?: string | null;
-};
-
 type CaseRow = {
   id: number;
   caseCode: string;
   caseType: string;
-  sourceType: string;
-  branchId: number | null;
-  branchCreatedBy: number | null;
-  branchNotes: string | null;
   customerId: number;
   deviceId: number;
   status: string;
@@ -193,9 +173,6 @@ type CaseRow = {
   readyNotificationMessage: string | null;
   readyNotificationChannel: string | null;
   readyNotificationSentAt: Date | null;
-  centerReceivedAt: Date | null;
-  centerReceivedBy: number | null;
-  centerReceiptNotes: string | null;
   customerReceivedAt: Date | null;
   operationFinalizedAt: Date | null;
   finalResult: string | null;
@@ -226,14 +203,6 @@ type CaseDetails = {
     phone: string;
     address: string | null;
   } | null;
-  branch: {
-    id: number;
-    name: string;
-    code: string;
-    city: string;
-    phone: string | null;
-    status: string;
-  } | null;
   device: {
     id: number;
     applianceType: string;
@@ -255,16 +224,6 @@ type CaseDetails = {
     name: string;
     email: string;
   } | null;
-  branchCreatedByUser: {
-    id: number;
-    name: string;
-    email: string;
-  } | null;
-  centerReceivedByUser: {
-    id: number;
-    name: string;
-    email: string;
-  } | null;
   assignedTechnician: {
     id: number;
     name: string;
@@ -275,17 +234,12 @@ type CaseDetails = {
 type CaseAccessContext = {
   role?: string;
   userId: number | null;
-  branchId?: number | null;
 };
 
 const returnCaseFields = {
   id: cases.id,
   caseCode: cases.caseCode,
   caseType: cases.caseType,
-  sourceType: cases.sourceType,
-  branchId: cases.branchId,
-  branchCreatedBy: cases.branchCreatedBy,
-  branchNotes: cases.branchNotes,
   customerId: cases.customerId,
   deviceId: cases.deviceId,
   status: cases.status,
@@ -328,9 +282,6 @@ const returnCaseFields = {
   readyNotificationMessage: cases.readyNotificationMessage,
   readyNotificationChannel: cases.readyNotificationChannel,
   readyNotificationSentAt: cases.readyNotificationSentAt,
-  centerReceivedAt: cases.centerReceivedAt,
-  centerReceivedBy: cases.centerReceivedBy,
-  centerReceiptNotes: cases.centerReceiptNotes,
   customerReceivedAt: cases.customerReceivedAt,
   operationFinalizedAt: cases.operationFinalizedAt,
   finalResult: cases.finalResult,
@@ -354,14 +305,6 @@ const buildExecutionDueAt = (startedAt: Date, days: number, hours: number) => {
 const ACTIVE_CASE_PART_HANDOFF_STATUSES = ["delivered", "received"] as const;
 
 const buildCaseAccessWhereClause = (access?: CaseAccessContext) => {
-  if (access?.role === "branch_user") {
-    if (!access.branchId) {
-      return sql`1 = 0`;
-    }
-
-    return eq(cases.branchId, access.branchId);
-  }
-
   if (access?.role === "technician" && access.userId) {
     return eq(cases.assignedTechnicianId, access.userId);
   }
@@ -585,13 +528,9 @@ export const caseService = {
         .values({
           caseCode,
           caseType: input.caseType || "internal",
-          sourceType: input.sourceType || "main_center",
-          branchId: input.sourceType === "branch" ? input.branchId ?? null : null,
-          branchCreatedBy: input.sourceType === "branch" ? input.branchCreatedBy ?? input.createdBy : null,
-          branchNotes: input.branchNotes,
           customerId,
           deviceId,
-          status: input.sourceType === "branch" ? CASE_STATUSES.AWAITING_CENTER_RECEIPT : CASE_STATUSES.RECEIVED,
+          status: CASE_STATUSES.RECEIVED,
           customerComplaint: input.customerComplaint,
           priority: input.priority || "متوسطة",
           maintenanceTeam: input.maintenanceTeam,
@@ -611,10 +550,7 @@ export const caseService = {
         fromStatus: null,
         toStatus: createdCase.status,
         changedBy: input.createdBy,
-        notes:
-          input.sourceType === "branch"
-            ? "Case created by branch and is awaiting center receipt"
-            : `Case created as ${createdCase.caseType === "external" ? "external" : "internal"} maintenance`,
+        notes: `Case created as ${createdCase.caseType === "external" ? "external" : "internal"} maintenance`,
       });
 
       return createdCase;
@@ -627,10 +563,6 @@ export const caseService = {
         id: cases.id,
         caseCode: cases.caseCode,
         caseType: cases.caseType,
-        sourceType: cases.sourceType,
-        branchId: cases.branchId,
-        branchCreatedBy: cases.branchCreatedBy,
-        branchNotes: cases.branchNotes,
         customerId: cases.customerId,
         deviceId: cases.deviceId,
         status: cases.status,
@@ -671,9 +603,6 @@ export const caseService = {
         readyNotificationMessage: cases.readyNotificationMessage,
         readyNotificationChannel: cases.readyNotificationChannel,
         readyNotificationSentAt: cases.readyNotificationSentAt,
-        centerReceivedAt: cases.centerReceivedAt,
-        centerReceivedBy: cases.centerReceivedBy,
-        centerReceiptNotes: cases.centerReceiptNotes,
         customerReceivedAt: cases.customerReceivedAt,
         operationFinalizedAt: cases.operationFinalizedAt,
         finalResult: cases.finalResult,
@@ -684,8 +613,6 @@ export const caseService = {
         updatedAt: cases.updatedAt,
         customerName: customers.name,
         customerPhone: customers.phone,
-        branchName: branches.name,
-        branchCode: branches.code,
         deviceApplianceType: devices.applianceType,
         deviceBrand: devices.brand,
         deviceModelName: devices.modelName,
@@ -694,7 +621,6 @@ export const caseService = {
       })
       .from(cases)
       .leftJoin(customers, eq(cases.customerId, customers.id))
-      .leftJoin(branches, eq(cases.branchId, branches.id))
       .leftJoin(devices, eq(cases.deviceId, devices.id))
       .where(and(
         isNull(cases.operationFinalizedAt),
@@ -726,23 +652,6 @@ export const caseService = {
       .from(customers)
       .where(eq(customers.id, caseData.customerId))
       .limit(1);
-
-    const branchResult = caseData.branchId
-      ? (
-          await db
-            .select({
-              id: branches.id,
-              name: branches.name,
-              code: branches.code,
-              city: branches.city,
-              phone: branches.phone,
-              status: branches.status,
-            })
-            .from(branches)
-            .where(eq(branches.id, caseData.branchId))
-            .limit(1)
-        )[0] || null
-      : null;
 
     const deviceResult = await db
       .select({
@@ -799,26 +708,6 @@ export const caseService = {
           .limit(1)
       )[0] || null;
 
-    const branchCreatedByUser = caseData.branchCreatedBy
-      ? (
-          await db
-            .select({ id: users.id, name: users.name, email: users.email })
-            .from(users)
-            .where(eq(users.id, caseData.branchCreatedBy))
-            .limit(1)
-        )[0] || null
-      : null;
-
-    const centerReceivedByUser = caseData.centerReceivedBy
-      ? (
-          await db
-            .select({ id: users.id, name: users.name, email: users.email })
-            .from(users)
-            .where(eq(users.id, caseData.centerReceivedBy))
-            .limit(1)
-        )[0] || null
-      : null;
-
     const assignedTechnician = caseData.assignedTechnicianId
       ? (
           await db
@@ -832,13 +721,10 @@ export const caseService = {
     return {
       caseData,
       customer: customerResult[0] || null,
-      branch: branchResult,
       device: deviceResult[0] || null,
       history,
       waitingPartInventoryItem,
       createdByUser,
-      branchCreatedByUser,
-      centerReceivedByUser,
       assignedTechnician,
     };
   },
@@ -862,10 +748,6 @@ export const caseService = {
 
     if (input.deviceId !== undefined) updateData.deviceId = input.deviceId;
     if (input.caseType !== undefined) updateData.caseType = input.caseType;
-    if (input.sourceType !== undefined) updateData.sourceType = input.sourceType;
-    if (input.branchId !== undefined) updateData.branchId = input.branchId;
-    if (input.branchCreatedBy !== undefined) updateData.branchCreatedBy = input.branchCreatedBy;
-    if (input.branchNotes !== undefined) updateData.branchNotes = input.branchNotes;
     if (input.customerComplaint !== undefined) updateData.customerComplaint = input.customerComplaint;
     if (input.priority !== undefined) updateData.priority = input.priority;
     if (input.maintenanceTeam !== undefined) updateData.maintenanceTeam = input.maintenanceTeam;
@@ -895,9 +777,6 @@ export const caseService = {
     if (input.readyNotificationMessage !== undefined) updateData.readyNotificationMessage = input.readyNotificationMessage;
     if (input.readyNotificationChannel !== undefined) updateData.readyNotificationChannel = input.readyNotificationChannel;
     if (input.readyNotificationSentAt !== undefined) updateData.readyNotificationSentAt = input.readyNotificationSentAt;
-    if (input.centerReceivedAt !== undefined) updateData.centerReceivedAt = input.centerReceivedAt;
-    if (input.centerReceivedBy !== undefined) updateData.centerReceivedBy = input.centerReceivedBy;
-    if (input.centerReceiptNotes !== undefined) updateData.centerReceiptNotes = input.centerReceiptNotes;
     if (input.customerReceivedAt !== undefined) updateData.customerReceivedAt = input.customerReceivedAt;
     if (input.operationFinalizedAt !== undefined) updateData.operationFinalizedAt = input.operationFinalizedAt;
     if (input.assignedTechnicianId !== undefined) updateData.assignedTechnicianId = input.assignedTechnicianId;
@@ -1339,43 +1218,6 @@ export const caseService = {
     return updatedCases[0];
   },
 
-  async confirmCenterReceipt(id: number, input: ConfirmCenterReceiptInput): Promise<CaseRow> {
-    const existingCase = await this.getCaseById(id);
-    if (!existingCase) {
-      throw new Error("Case not found");
-    }
-
-    if (existingCase.caseData.status !== CASE_STATUSES.AWAITING_CENTER_RECEIPT) {
-      throw new Error("Center receipt can only be confirmed for awaiting center receipt cases");
-    }
-
-    const happenedAt = new Date();
-
-    return await db.transaction(async (tx) => {
-      const updatedCases = await tx
-        .update(cases)
-        .set({
-          status: CASE_STATUSES.RECEIVED,
-          centerReceivedAt: happenedAt,
-          centerReceivedBy: input.changedBy,
-          centerReceiptNotes: input.notes ?? null,
-          updatedAt: happenedAt,
-        })
-        .where(eq(cases.id, id))
-        .returning(returnCaseFields);
-
-      await tx.insert(caseStatusHistory).values({
-        caseId: id,
-        fromStatus: CASE_STATUSES.AWAITING_CENTER_RECEIPT,
-        toStatus: CASE_STATUSES.RECEIVED,
-        changedBy: input.changedBy,
-        notes: input.notes || "Center receipt confirmed",
-      });
-
-      return updatedCases[0];
-    });
-  },
-
   async finalizeOperation(id: number, changedBy: number, input?: FinalizeOperationInput): Promise<CaseRow> {
     const existingCase = await this.getCaseById(id);
     if (!existingCase) {
@@ -1484,32 +1326,6 @@ export const caseService = {
         buildCaseAccessWhereClause(access),
       ))
       .orderBy(desc(cases.operationFinalizedAt));
-  },
-
-  async getAwaitingCenterReceiptCases(access?: CaseAccessContext): Promise<any[]> {
-    return await db
-      .select({
-        id: cases.id,
-        caseCode: cases.caseCode,
-        sourceType: cases.sourceType,
-        branchId: cases.branchId,
-        branchNotes: cases.branchNotes,
-        status: cases.status,
-        createdAt: cases.createdAt,
-        customerName: customers.name,
-        customerPhone: customers.phone,
-        branchName: branches.name,
-        branchCode: branches.code,
-        deviceApplianceType: devices.applianceType,
-        deviceBrand: devices.brand,
-        deviceModelName: devices.modelName,
-      })
-      .from(cases)
-      .leftJoin(customers, eq(cases.customerId, customers.id))
-      .leftJoin(devices, eq(cases.deviceId, devices.id))
-      .leftJoin(branches, eq(cases.branchId, branches.id))
-      .where(and(eq(cases.status, CASE_STATUSES.AWAITING_CENTER_RECEIPT), buildCaseAccessWhereClause(access)))
-      .orderBy(desc(cases.createdAt));
   },
 
   async getMaintenanceOperationById(id: number, access?: CaseAccessContext): Promise<CaseDetails | undefined> {
