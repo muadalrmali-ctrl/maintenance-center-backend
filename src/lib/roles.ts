@@ -5,6 +5,7 @@ export const APP_ROLES = [
   "store_manager",
   "technician_manager",
   "maintenance_manager",
+  "reception_point_user",
 ] as const;
 
 export type AppRole = (typeof APP_ROLES)[number];
@@ -15,6 +16,7 @@ export const TEAM_ROLES = [
   "store_manager",
   "receptionist",
   "maintenance_manager",
+  "reception_point_user",
   "admin",
 ] as const;
 
@@ -28,4 +30,5 @@ export const roleLabels: Record<AppRole, string> = {
   store_manager: "مسؤول مخزن",
   technician_manager: "مسؤول الفنيين",
   maintenance_manager: "مدير الصيانة",
+  reception_point_user: "Reception Point User",
 };

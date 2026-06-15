@@ -8,6 +8,7 @@ import {
   executionActionSchema,
   repairQualitySchema,
   readyNotificationSchema,
+  receiveAtMainCenterSchema,
 } from "./cases.validation";
 import { requestHasPermission } from "../../middlewares/permission";
 
@@ -23,6 +24,9 @@ const getRequestUserId = (req: Request) => {
   const userId = typeof rawUserId === "string" ? Number(rawUserId) : rawUserId;
   return userId && !Number.isNaN(userId) ? userId : null;
 };
+
+const getReceptionPointId = (req: Request) =>
+  typeof req.user?.receptionPointId === "number" ? req.user.receptionPointId : null;
 
 const CASE_UPDATE_PERMISSION_RULES: Array<{ keys: string[]; permission: string }> = [
   {
@@ -124,6 +128,18 @@ export const caseController = {
         });
       }
 
+      const isReceptionPointUser = req.user?.role === "reception_point_user";
+      const scopedReceptionPointId = getReceptionPointId(req);
+      if (isReceptionPointUser && !scopedReceptionPointId) {
+        return res.status(403).json({
+          success: false,
+          message: "Reception point user is not linked to a reception point",
+        });
+      }
+
+      const sourceType = isReceptionPointUser ? "reception_point" : validation.data.sourceType;
+      const receptionPointId = isReceptionPointUser ? scopedReceptionPointId : validation.data.receptionPointId ?? null;
+
       const caseData = await caseService.createCase({
         caseType: validation.data.caseType,
         customerId: validation.data.customerId,
@@ -138,6 +154,14 @@ export const caseController = {
         notes: validation.data.notes,
         deliveryDueAt: validation.data.deliveryDueAt ? new Date(validation.data.deliveryDueAt) : undefined,
         assignedTechnicianId: validation.data.assignedTechnicianId,
+        sourceType,
+        receptionPointId,
+        createdAtReceptionPointBy: isReceptionPointUser ? createdBy : null,
+        processingMode: validation.data.processingMode,
+        transferStatus: validation.data.transferStatus,
+        localTechnicianName: validation.data.localTechnicianName,
+        localTechnicianPhone: validation.data.localTechnicianPhone,
+        localRepairNotes: validation.data.localRepairNotes,
         createdBy,
       });
 
@@ -163,6 +187,7 @@ export const caseController = {
       const cases = await caseService.getCases({
         role: req.user?.role,
         userId: getRequestUserId(req),
+        receptionPointId: getReceptionPointId(req),
       });
 
       return res.status(200).json({
@@ -176,6 +201,70 @@ export const caseController = {
         success: false,
         message: "Failed to retrieve cases",
         error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  async getIncomingReceptionPointCases(req: Request, res: Response) {
+    try {
+      const incomingCases = await caseService.getIncomingReceptionPointCases({
+        role: req.user?.role,
+        userId: getRequestUserId(req),
+        receptionPointId: getReceptionPointId(req),
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Incoming reception point cases retrieved successfully",
+        data: incomingCases,
+      });
+    } catch (error) {
+      logCaseError("getIncomingReceptionPointCases", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve incoming reception point cases",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  async receiveAtMainCenter(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+      const validation = receiveAtMainCenterSchema.safeParse(req.body);
+      const receivedBy = getRequestUserId(req);
+
+      if (isNaN(id)) {
+        return res.status(400).json({ success: false, message: "Invalid case ID" });
+      }
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: validation.error.issues,
+        });
+      }
+
+      if (!receivedBy) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const caseData = await caseService.markReceivedAtMainCenter(id, {
+        receivedBy,
+        notes: validation.data.notes ?? null,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Case received at main center successfully",
+        data: caseData,
+      });
+    } catch (error) {
+      logCaseError("receiveAtMainCenter", error);
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to receive case at main center",
       });
     }
   },
@@ -194,6 +283,7 @@ export const caseController = {
       const caseData = await caseService.getCaseById(id, {
         role: req.user?.role,
         userId: getRequestUserId(req),
+        receptionPointId: getReceptionPointId(req),
       });
 
       if (!caseData) {
@@ -238,12 +328,28 @@ export const caseController = {
         });
       }
 
+      if (req.user?.role === "reception_point_user") {
+        const accessibleCase = await caseService.getCaseById(id, {
+          role: req.user?.role,
+          userId: getRequestUserId(req),
+          receptionPointId: getReceptionPointId(req),
+        });
+
+        if (!accessibleCase) {
+          return res.status(404).json({
+            success: false,
+            message: "Case not found",
+          });
+        }
+      }
+
       const updatesNewCaseOnlyData = NEW_CASE_ONLY_UPDATE_KEYS.some((key) => validation.data[key] !== undefined);
 
       if (updatesNewCaseOnlyData) {
         const existingCase = await caseService.getCaseById(id, {
           role: req.user?.role,
           userId: getRequestUserId(req),
+          receptionPointId: getReceptionPointId(req),
         });
 
         if (!existingCase) {
@@ -312,6 +418,9 @@ export const caseController = {
         executionDurationDays: validation.data.executionDurationDays,
         executionDurationHours: validation.data.executionDurationHours,
         finalResult: validation.data.finalResult,
+        localTechnicianName: validation.data.localTechnicianName,
+        localTechnicianPhone: validation.data.localTechnicianPhone,
+        localRepairNotes: validation.data.localRepairNotes,
       });
 
       if (!caseData) {

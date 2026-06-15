@@ -1,5 +1,5 @@
 import { db } from "../../db";
-import { caseParts, cases, caseServices, caseStatusHistory, customers, devices, inventoryItems, inventoryMovements, invoiceItems, invoices, mediaAssets, users } from "../../db/schema";
+import { caseParts, cases, caseServices, caseStatusHistory, customers, devices, inventoryItems, inventoryMovements, invoiceItems, invoices, mediaAssets, receptionPoints, users } from "../../db/schema";
 import { eq, desc, sql, or, isNotNull, isNull, and, notInArray, inArray } from "drizzle-orm";
 import { CaseStatus, CASE_STATUSES } from "./constants";
 import { validateStatusTransition, validateStatusSpecificRules } from "./cases.validation";
@@ -32,6 +32,14 @@ type CreateCaseInput = {
   notes?: string;
   deliveryDueAt?: Date;
   assignedTechnicianId?: number;
+  sourceType?: "main_center" | "reception_point";
+  receptionPointId?: number | null;
+  createdAtReceptionPointBy?: number | null;
+  processingMode?: "main_center_repair" | "send_to_main_center" | "local_repair";
+  transferStatus?: "not_required" | "pending_send" | "in_transit" | "received_at_main_center";
+  localTechnicianName?: string | null;
+  localTechnicianPhone?: string | null;
+  localRepairNotes?: string | null;
   createdBy: number;
 };
 
@@ -75,6 +83,9 @@ type UpdateCaseInput = {
   executionDurationDays?: number;
   executionDurationHours?: number;
   finalResult?: string | null;
+  localTechnicianName?: string | null;
+  localTechnicianPhone?: string | null;
+  localRepairNotes?: string | null;
 };
 
 type ChangeStatusInput = {
@@ -179,6 +190,18 @@ type CaseRow = {
   isArchived: boolean;
   createdBy: number;
   assignedTechnicianId: number | null;
+  sourceType: string;
+  receptionPointId: number | null;
+  createdAtReceptionPointBy: number | null;
+  processingMode: string;
+  transferStatus: string;
+  sentToMainCenterAt: Date | null;
+  mainCenterReceivedAt: Date | null;
+  mainCenterReceivedBy: number | null;
+  mainCenterReceiptNotes: string | null;
+  localTechnicianName: string | null;
+  localTechnicianPhone: string | null;
+  localRepairNotes: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
 };
@@ -229,6 +252,12 @@ type CaseDetails = {
     name: string;
     email: string;
   } | null;
+  receptionPoint: {
+    id: number;
+    name: string;
+    city: string;
+    area: string | null;
+  } | null;
 };
 
 const NEW_CASE_STATUSES = new Set(["received", "new"]);
@@ -236,6 +265,7 @@ const NEW_CASE_STATUSES = new Set(["received", "new"]);
 type CaseAccessContext = {
   role?: string;
   userId: number | null;
+  receptionPointId?: number | null;
 };
 
 const returnCaseFields = {
@@ -290,6 +320,18 @@ const returnCaseFields = {
   isArchived: cases.isArchived,
   createdBy: cases.createdBy,
   assignedTechnicianId: cases.assignedTechnicianId,
+  sourceType: cases.sourceType,
+  receptionPointId: cases.receptionPointId,
+  createdAtReceptionPointBy: cases.createdAtReceptionPointBy,
+  processingMode: cases.processingMode,
+  transferStatus: cases.transferStatus,
+  sentToMainCenterAt: cases.sentToMainCenterAt,
+  mainCenterReceivedAt: cases.mainCenterReceivedAt,
+  mainCenterReceivedBy: cases.mainCenterReceivedBy,
+  mainCenterReceiptNotes: cases.mainCenterReceiptNotes,
+  localTechnicianName: cases.localTechnicianName,
+  localTechnicianPhone: cases.localTechnicianPhone,
+  localRepairNotes: cases.localRepairNotes,
   createdAt: cases.createdAt,
   updatedAt: cases.updatedAt,
 };
@@ -309,6 +351,14 @@ const ACTIVE_CASE_PART_HANDOFF_STATUSES = ["delivered", "received"] as const;
 const buildCaseAccessWhereClause = (access?: CaseAccessContext) => {
   if (access?.role === "technician" && access.userId) {
     return eq(cases.assignedTechnicianId, access.userId);
+  }
+
+  if (access?.role === "reception_point_user") {
+    if (!access.receptionPointId) {
+      return sql`false`;
+    }
+
+    return eq(cases.receptionPointId, access.receptionPointId);
   }
 
   return undefined;
@@ -525,6 +575,24 @@ export const caseService = {
         throw new Error("Customer and device data are required");
       }
 
+      const sourceType = input.sourceType ?? (input.receptionPointId ? "reception_point" : "main_center");
+      const processingMode =
+        sourceType === "reception_point"
+          ? input.processingMode ?? "send_to_main_center"
+          : "main_center_repair";
+      const transferStatus =
+        processingMode === "send_to_main_center"
+          ? input.transferStatus ?? "in_transit"
+          : "not_required";
+      const initialStatus =
+        processingMode === "send_to_main_center"
+          ? CASE_STATUSES.IN_TRANSIT_TO_MAIN_CENTER
+          : CASE_STATUSES.RECEIVED;
+
+      if (sourceType === "reception_point" && !input.receptionPointId) {
+        throw new Error("Reception point is required for reception point cases");
+      }
+
       const createdCases = await tx
         .insert(cases)
         .values({
@@ -532,13 +600,22 @@ export const caseService = {
           caseType: input.caseType || "internal",
           customerId,
           deviceId,
-          status: CASE_STATUSES.RECEIVED,
+          status: initialStatus,
           customerComplaint: input.customerComplaint,
           priority: input.priority || "متوسطة",
           maintenanceTeam: input.maintenanceTeam,
           technicianName: input.technicianName,
           serialNumber: input.serialNumber,
           notes: input.notes,
+          sourceType,
+          receptionPointId: sourceType === "reception_point" ? input.receptionPointId : null,
+          createdAtReceptionPointBy: sourceType === "reception_point" ? input.createdAtReceptionPointBy ?? input.createdBy : null,
+          processingMode,
+          transferStatus,
+          sentToMainCenterAt: processingMode === "send_to_main_center" ? new Date() : null,
+          localTechnicianName: processingMode === "local_repair" ? input.localTechnicianName : null,
+          localTechnicianPhone: processingMode === "local_repair" ? input.localTechnicianPhone : null,
+          localRepairNotes: processingMode === "local_repair" ? input.localRepairNotes : null,
           deliveryDueAt: input.deliveryDueAt,
           assignedTechnicianId: input.assignedTechnicianId,
           createdBy: input.createdBy,
@@ -552,7 +629,12 @@ export const caseService = {
         fromStatus: null,
         toStatus: createdCase.status,
         changedBy: input.createdBy,
-        notes: `Case created as ${createdCase.caseType === "external" ? "external" : "internal"} maintenance`,
+        notes:
+          processingMode === "send_to_main_center"
+            ? "Case created at reception point and sent to main center"
+            : processingMode === "local_repair"
+              ? "Case created at reception point for local repair"
+              : `Case created as ${createdCase.caseType === "external" ? "external" : "internal"} maintenance`,
       });
 
       return createdCase;
@@ -611,6 +693,18 @@ export const caseService = {
         isArchived: cases.isArchived,
         createdBy: cases.createdBy,
         assignedTechnicianId: cases.assignedTechnicianId,
+        sourceType: cases.sourceType,
+        receptionPointId: cases.receptionPointId,
+        createdAtReceptionPointBy: cases.createdAtReceptionPointBy,
+        processingMode: cases.processingMode,
+        transferStatus: cases.transferStatus,
+        sentToMainCenterAt: cases.sentToMainCenterAt,
+        mainCenterReceivedAt: cases.mainCenterReceivedAt,
+        mainCenterReceivedBy: cases.mainCenterReceivedBy,
+        mainCenterReceiptNotes: cases.mainCenterReceiptNotes,
+        localTechnicianName: cases.localTechnicianName,
+        localTechnicianPhone: cases.localTechnicianPhone,
+        localRepairNotes: cases.localRepairNotes,
         createdAt: cases.createdAt,
         updatedAt: cases.updatedAt,
         customerName: customers.name,
@@ -620,10 +714,13 @@ export const caseService = {
         deviceModelName: devices.modelName,
         deviceModelCode: devices.modelCode,
         deviceNotes: devices.notes,
+        receptionPointName: receptionPoints.name,
+        receptionPointCity: receptionPoints.city,
       })
       .from(cases)
       .leftJoin(customers, eq(cases.customerId, customers.id))
       .leftJoin(devices, eq(cases.deviceId, devices.id))
+      .leftJoin(receptionPoints, eq(cases.receptionPointId, receptionPoints.id))
       .where(and(
         isNull(cases.operationFinalizedAt),
         notInArray(cases.status, [CASE_STATUSES.COMPLETED, CASE_STATUSES.DELIVERED, CASE_STATUSES.ARCHIVED]),
@@ -720,6 +817,21 @@ export const caseService = {
         )[0] || null
       : null;
 
+    const receptionPoint = caseData.receptionPointId
+      ? (
+          await db
+            .select({
+              id: receptionPoints.id,
+              name: receptionPoints.name,
+              city: receptionPoints.city,
+              area: receptionPoints.area,
+            })
+            .from(receptionPoints)
+            .where(eq(receptionPoints.id, caseData.receptionPointId))
+            .limit(1)
+        )[0] || null
+      : null;
+
     return {
       caseData,
       customer: customerResult[0] || null,
@@ -728,6 +840,7 @@ export const caseService = {
       waitingPartInventoryItem,
       createdByUser,
       assignedTechnician,
+      receptionPoint,
     };
   },
 
@@ -785,6 +898,9 @@ export const caseService = {
     if (input.executionDurationDays !== undefined) updateData.executionDurationDays = input.executionDurationDays;
     if (input.executionDurationHours !== undefined) updateData.executionDurationHours = input.executionDurationHours;
     if (input.finalResult !== undefined) updateData.finalResult = input.finalResult;
+    if (input.localTechnicianName !== undefined) updateData.localTechnicianName = input.localTechnicianName;
+    if (input.localTechnicianPhone !== undefined) updateData.localTechnicianPhone = input.localTechnicianPhone;
+    if (input.localRepairNotes !== undefined) updateData.localRepairNotes = input.localRepairNotes;
 
     const updatedCases = await db
       .update(cases)
@@ -831,6 +947,81 @@ export const caseService = {
       await tx.delete(cases).where(eq(cases.id, id));
 
       return existingCase;
+    });
+  },
+
+  async getIncomingReceptionPointCases(access?: CaseAccessContext): Promise<any[]> {
+    return await db
+      .select({
+        id: cases.id,
+        caseCode: cases.caseCode,
+        status: cases.status,
+        processingMode: cases.processingMode,
+        transferStatus: cases.transferStatus,
+        customerComplaint: cases.customerComplaint,
+        createdAt: cases.createdAt,
+        customerName: customers.name,
+        customerPhone: customers.phone,
+        deviceApplianceType: devices.applianceType,
+        deviceBrand: devices.brand,
+        deviceModelName: devices.modelName,
+        receptionPointId: receptionPoints.id,
+        receptionPointName: receptionPoints.name,
+        receptionPointCity: receptionPoints.city,
+      })
+      .from(cases)
+      .leftJoin(customers, eq(cases.customerId, customers.id))
+      .leftJoin(devices, eq(cases.deviceId, devices.id))
+      .leftJoin(receptionPoints, eq(cases.receptionPointId, receptionPoints.id))
+      .where(and(
+        eq(cases.processingMode, "send_to_main_center"),
+        or(eq(cases.status, CASE_STATUSES.IN_TRANSIT_TO_MAIN_CENTER), inArray(cases.transferStatus, ["pending_send", "in_transit"])),
+        buildCaseAccessWhereClause(access),
+      ))
+      .orderBy(desc(cases.createdAt));
+  },
+
+  async markReceivedAtMainCenter(id: number, input: { receivedBy: number; notes?: string | null }): Promise<CaseRow> {
+    const existingCase = await this.getCaseById(id);
+    if (!existingCase) {
+      throw new Error("Case not found");
+    }
+
+    if (existingCase.caseData.processingMode !== "send_to_main_center") {
+      throw new Error("Only cases sent to the main center can be received here");
+    }
+
+    if (
+      existingCase.caseData.status !== CASE_STATUSES.IN_TRANSIT_TO_MAIN_CENTER &&
+      !["pending_send", "in_transit"].includes(existingCase.caseData.transferStatus)
+    ) {
+      throw new Error("Case is not waiting for main center receipt");
+    }
+
+    const now = new Date();
+    return await db.transaction(async (tx) => {
+      const updatedCases = await tx
+        .update(cases)
+        .set({
+          status: CASE_STATUSES.RECEIVED,
+          transferStatus: "received_at_main_center",
+          mainCenterReceivedAt: now,
+          mainCenterReceivedBy: input.receivedBy,
+          mainCenterReceiptNotes: input.notes ?? null,
+          updatedAt: now,
+        })
+        .where(eq(cases.id, id))
+        .returning(returnCaseFields);
+
+      await tx.insert(caseStatusHistory).values({
+        caseId: id,
+        fromStatus: existingCase.caseData.status,
+        toStatus: CASE_STATUSES.RECEIVED,
+        changedBy: input.receivedBy,
+        notes: input.notes || "تم استلام الحالة في المركز الرئيسي",
+      });
+
+      return updatedCases[0];
     });
   },
 

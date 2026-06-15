@@ -10,6 +10,7 @@ router.use(authMiddleware);
 // Receptionist can create and manage basic case data
 router.post("/", requirePermission("cases.create"), caseController.create);
 router.get("/", requirePermission("cases.view"), caseController.getAll);
+router.get("/incoming-reception-cases", requirePermission("reception_points.receive_cases"), caseController.getIncomingReceptionPointCases);
 router.get("/maintenance-operations", requirePermission("maintenance_operations.view"), caseController.getMaintenanceOperations);
 router.get("/maintenance-operations/:id", requirePermission("maintenance_operations.view"), caseController.getMaintenanceOperationById);
 router.get("/:id", requirePermission("cases.view"), caseController.getById);
@@ -27,5 +28,6 @@ router.patch("/:id/repair-quality", requirePermission("cases.repaired.post_repai
 router.patch("/:id/ready-notification", requirePermission("cases.repaired.ready_notification.send"), caseController.sendReadyNotification);
 router.patch("/:id/customer-received", requirePermission("cases.repaired.summary.view"), caseController.markCustomerReceived);
 router.patch("/:id/finalize", requirePermission("cases.repaired.post_repair_quality.view"), caseController.finalizeOperation);
+router.patch("/:id/receive-at-main-center", requirePermission("reception_points.receive_cases"), caseController.receiveAtMainCenter);
 
 export default router;

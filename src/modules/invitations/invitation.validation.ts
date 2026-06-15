@@ -6,6 +6,7 @@ export const staffRoles = [
   "receptionist",
   "technician_manager",
   "maintenance_manager",
+  "reception_point_user",
   "admin",
 ] as const;
 
@@ -15,7 +16,11 @@ export const createInvitationSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
   notes: z.string().optional(),
+  receptionPointId: z.number().int().positive().optional(),
   expiresInDays: z.coerce.number().int().min(1).max(30).optional(),
+}).refine((data) => data.role !== "reception_point_user" || Boolean(data.receptionPointId), {
+  message: "receptionPointId is required for reception point users",
+  path: ["receptionPointId"],
 });
 
 export const acceptInvitationSchema = z.object({

@@ -50,6 +50,7 @@ export const authMiddleware = async (
         name: users.name,
         email: users.email,
         role: users.role,
+        receptionPointId: users.receptionPointId,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -71,6 +72,7 @@ export const authMiddleware = async (
       name: user.name,
       email: user.email,
       role: user.role,
+      receptionPointId: user.receptionPointId,
       permissions,
       isAdmin: user.role === "admin",
     };

@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { env } from "../../config/env";
 import { db } from "../../db";
-import { permissions, staffInvitations, userPermissions, users } from "../../db/schema";
+import { permissions, receptionPoints, staffInvitations, userPermissions, users } from "../../db/schema";
 import { getDefaultPermissionKeysForRole } from "../../lib/permissions";
 import type { AppRole } from "../../lib/roles";
 import { permissionsService } from "../permissions/permissions.service";
@@ -18,6 +18,7 @@ type CreateInvitationInput = {
   email?: string;
   phone?: string;
   notes?: string;
+  receptionPointId?: number;
   expiresInDays?: number;
   invitedBy: number;
 };
@@ -85,6 +86,7 @@ const invitationSelect = {
   email: staffInvitations.email,
   phone: staffInvitations.phone,
   notes: staffInvitations.notes,
+  receptionPointId: staffInvitations.receptionPointId,
   invitedBy: staffInvitations.invitedBy,
   acceptedBy: staffInvitations.acceptedBy,
   expiresAt: staffInvitations.expiresAt,
@@ -114,6 +116,22 @@ export const invitationService = {
       }
     }
 
+    if (input.role === "reception_point_user") {
+      if (!input.receptionPointId) {
+        throw new Error("Reception point is required for reception point users");
+      }
+
+      const [point] = await db
+        .select({ id: receptionPoints.id })
+        .from(receptionPoints)
+        .where(and(eq(receptionPoints.id, input.receptionPointId), eq(receptionPoints.status, "active")))
+        .limit(1);
+
+      if (!point) {
+        throw new Error("Reception point is not active or does not exist");
+      }
+    }
+
     const records = await db
       .insert(staffInvitations)
       .values({
@@ -125,6 +143,7 @@ export const invitationService = {
         email: normalizedEmail,
         phone: input.phone?.trim() || null,
         notes: input.notes?.trim() || null,
+        receptionPointId: input.role === "reception_point_user" ? input.receptionPointId ?? null : null,
         invitedBy: input.invitedBy,
         expiresAt,
       })
@@ -195,6 +214,7 @@ export const invitationService = {
           phone: input.phone.trim(),
           password: hashedPassword,
           role: invitation.role,
+          receptionPointId: invitation.role === "reception_point_user" ? invitation.receptionPointId : null,
         })
         .returning({
           id: users.id,

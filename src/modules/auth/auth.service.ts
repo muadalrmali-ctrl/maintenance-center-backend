@@ -35,6 +35,7 @@ type LoginResult = {
     email: string;
     role: string;
     permissions: string[];
+    receptionPointId: number | null;
     createdAt: Date | null;
   };
   token: string;
@@ -55,6 +56,7 @@ type TeamMemberDetails = {
     name: string;
     email: string;
     role: string;
+    receptionPointId: number | null;
     phone: string | null;
     status: string;
     joinDate: Date | null;
@@ -187,6 +189,7 @@ export const authService = {
         email: users.email,
         phone: users.phone,
         role: users.role,
+        receptionPointId: users.receptionPointId,
         createdAt: users.createdAt,
       })
       .from(users)
@@ -201,6 +204,7 @@ export const authService = {
         email: users.email,
         phone: users.phone,
         role: users.role,
+        receptionPointId: users.receptionPointId,
         createdAt: users.createdAt,
       })
       .from(users)
@@ -215,6 +219,7 @@ export const authService = {
         email: users.email,
         phone: users.phone,
         role: users.role,
+        receptionPointId: users.receptionPointId,
         createdAt: users.createdAt,
       })
       .from(users)
@@ -243,6 +248,7 @@ export const authService = {
         name: member.name,
         email: member.email,
         role: member.role,
+        receptionPointId: member.receptionPointId,
         phone: member.phone ?? invitationRows[0]?.phone ?? null,
         status: "نشط",
         joinDate: member.createdAt,
@@ -593,12 +599,14 @@ export const authService = {
         password: hashedPassword,
         phone: phone?.trim() || null,
         role,
+        receptionPointId: null,
       })
       .returning({
         id: users.id,
         name: users.name,
         email: users.email,
         role: users.role,
+        receptionPointId: users.receptionPointId,
         createdAt: users.createdAt,
       });
 
@@ -616,6 +624,7 @@ export const authService = {
         email: users.email,
         password: users.password,
         role: users.role,
+        receptionPointId: users.receptionPointId,
         createdAt: users.createdAt,
       })
       .from(users)
@@ -640,6 +649,7 @@ export const authService = {
         name: user.name,
         email: user.email,
         role: user.role,
+        receptionPointId: user.receptionPointId,
       },
       env.JWT_SECRET,
       {
@@ -655,6 +665,7 @@ export const authService = {
         name: user.name,
         email: user.email,
         role: user.role,
+        receptionPointId: user.receptionPointId,
         permissions,
         createdAt: user.createdAt,
       },

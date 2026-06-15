@@ -21,6 +21,9 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { key: "dashboard.view", label: "عرض لوحة التحكم", group: "dashboard" },
   { key: "cases.view", label: "عرض صفحة الحالات", group: "cases" },
   { key: "cases.create", label: "إنشاء حالة جديدة", group: "cases", parentKey: "cases.view" },
+  { key: "reception_points.view", label: "عرض نقاط الاستلام", group: "cases" },
+  { key: "reception_points.manage", label: "إدارة نقاط الاستلام", group: "cases", parentKey: "reception_points.view" },
+  { key: "reception_points.receive_cases", label: "استلام الحالات القادمة من نقاط الاستلام", group: "cases", parentKey: "reception_points.view" },
   { key: "cases.column.new.view", label: "عرض عمود حالة جديدة", group: "cases", parentKey: "cases.view" },
   { key: "cases.column.waiting.view", label: "عرض عمود بانتظار القطعة", group: "cases", parentKey: "cases.view" },
   { key: "cases.column.diagnosis.view", label: "عرض عمود قيد التشخيص", group: "cases", parentKey: "cases.view" },
@@ -238,6 +241,24 @@ const DEFAULT_MAINTENANCE_MANAGER_PERMISSIONS = [
   "accounting.devices.manage",
 ];
 
+const DEFAULT_RECEPTION_POINT_USER_PERMISSIONS = [
+  "dashboard.view",
+  "cases.view",
+  "cases.create",
+  "cases.column.new.view",
+  "cases.column.waiting.view",
+  "cases.column.diagnosis.view",
+  "cases.diagnosis.edit",
+  "cases.column.approval_part_delivery.view",
+  "cases.approval.approve",
+  "cases.approval.prepare_execution",
+  "cases.column.in_progress.view",
+  "cases.in_progress.execution.preview",
+  "cases.column.repaired.view",
+  "cases.repaired.summary.view",
+  "cases.column.not_repairable.view",
+];
+
 export const DEFAULT_ROLE_PERMISSION_KEYS: Record<AppRole, string[]> = {
   admin: [...ALL_PERMISSION_KEYS],
   receptionist: DEFAULT_RECEPTIONIST_PERMISSIONS,
@@ -245,6 +266,7 @@ export const DEFAULT_ROLE_PERMISSION_KEYS: Record<AppRole, string[]> = {
   store_manager: DEFAULT_STORE_MANAGER_PERMISSIONS,
   technician_manager: DEFAULT_TECHNICIAN_MANAGER_PERMISSIONS,
   maintenance_manager: DEFAULT_MAINTENANCE_MANAGER_PERMISSIONS,
+  reception_point_user: DEFAULT_RECEPTION_POINT_USER_PERMISSIONS,
 };
 
 export const getDefaultPermissionKeysForRole = (role: AppRole) =>

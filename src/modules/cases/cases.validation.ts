@@ -26,6 +26,13 @@ export const createCaseSchema = z.object({
   notes: z.string().optional(),
   deliveryDueAt: z.string().optional(),
   assignedTechnicianId: z.number().int().positive().optional(),
+  sourceType: z.enum(["main_center", "reception_point"]).optional(),
+  receptionPointId: z.number().int().positive().optional().nullable(),
+  processingMode: z.enum(["main_center_repair", "send_to_main_center", "local_repair"]).optional(),
+  transferStatus: z.enum(["not_required", "pending_send", "in_transit", "received_at_main_center"]).optional(),
+  localTechnicianName: z.string().optional().nullable(),
+  localTechnicianPhone: z.string().optional().nullable(),
+  localRepairNotes: z.string().optional().nullable(),
 }).refine((data) => data.customerId || data.customer, {
   message: "customerId or customer is required",
   path: ["customer"],
@@ -72,6 +79,13 @@ export const updateCaseSchema = z.object({
   executionDurationDays: z.number().int().min(0).optional(),
   executionDurationHours: z.number().int().min(0).max(23).optional(),
   finalResult: z.string().optional().nullable(),
+  localTechnicianName: z.string().optional().nullable(),
+  localTechnicianPhone: z.string().optional().nullable(),
+  localRepairNotes: z.string().optional().nullable(),
+});
+
+export const receiveAtMainCenterSchema = z.object({
+  notes: z.string().optional().nullable(),
 });
 
 export const changeCaseStatusSchema = z.object({

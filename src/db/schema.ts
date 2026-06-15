@@ -1,5 +1,19 @@
 import { pgTable, serial, text, timestamp, integer, boolean, numeric, uniqueIndex } from "drizzle-orm/pg-core";
 
+export const receptionPoints = pgTable("reception_points", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  city: text("city").notNull(),
+  area: text("area"),
+  address: text("address"),
+  phone: text("phone"),
+  managerName: text("manager_name"),
+  status: text("status").notNull().default("active"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -7,6 +21,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   phone: text("phone"),
   role: text("role").notNull().default("technician"),
+  receptionPointId: integer("reception_point_id").references(() => receptionPoints.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -49,6 +64,7 @@ export const staffInvitations = pgTable("staff_invitations", {
   email: text("email"),
   phone: text("phone"),
   notes: text("notes"),
+  receptionPointId: integer("reception_point_id").references(() => receptionPoints.id),
   invitedBy: integer("invited_by").references(() => users.id),
   acceptedBy: integer("accepted_by").references(() => users.id),
   expiresAt: timestamp("expires_at").notNull(),
@@ -107,6 +123,18 @@ export const cases = pgTable("cases", {
   technicianName: text("technician_name"),
   serialNumber: text("serial_number"),
   notes: text("notes"),
+  sourceType: text("source_type").notNull().default("main_center"),
+  receptionPointId: integer("reception_point_id").references(() => receptionPoints.id),
+  createdAtReceptionPointBy: integer("created_at_reception_point_by").references(() => users.id),
+  processingMode: text("processing_mode").notNull().default("main_center_repair"),
+  transferStatus: text("transfer_status").notNull().default("not_required"),
+  sentToMainCenterAt: timestamp("sent_to_main_center_at"),
+  mainCenterReceivedAt: timestamp("main_center_received_at"),
+  mainCenterReceivedBy: integer("main_center_received_by").references(() => users.id),
+  mainCenterReceiptNotes: text("main_center_receipt_notes"),
+  localTechnicianName: text("local_technician_name"),
+  localTechnicianPhone: text("local_technician_phone"),
+  localRepairNotes: text("local_repair_notes"),
   deliveryDueAt: timestamp("delivery_due_at"),
   executionStartedAt: timestamp("execution_started_at"),
   executionDueAt: timestamp("execution_due_at"),

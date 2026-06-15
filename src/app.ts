@@ -17,6 +17,7 @@ import invitationRoutes from "./modules/invitations/invitation.route";
 import { reportsRoutes } from "./modules/reports/reports.route";
 import { permissionsRoutes } from "./modules/permissions/permissions.route";
 import { accountingRoutes } from "./modules/accounting/accounting.route";
+import { receptionPointsRoutes } from "./modules/reception-points/reception-points.route";
 
 const app = express();
 
@@ -136,5 +137,6 @@ app.use("/api/notifications", notificationsRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/permissions", permissionsRoutes);
 app.use("/api/accounting", accountingRoutes);
+app.use("/api/reception-points", receptionPointsRoutes);
 
 export default app;

@@ -16,6 +16,8 @@ export const uploadCaseMediaFileSchema = z.object({
     "product_image",
     "damaged_part_image",
     "case_intake",
+    "reception_point_intake",
+    "center_receipt",
     "general",
     "waiting_part",
     "post_repair",
