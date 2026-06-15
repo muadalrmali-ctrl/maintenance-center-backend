@@ -80,6 +80,14 @@ const CASE_STATUS_PERMISSION_MAP: Record<string, string> = {
   not_repairable: "cases.diagnosis.edit",
 };
 
+const NEW_CASE_STATUSES = new Set(["received", "new"]);
+const NEW_CASE_ONLY_UPDATE_KEYS = [
+  "caseType",
+  "deviceId",
+  "customerComplaint",
+  "serialNumber",
+] as const;
+
 const collectRequiredPatchPermissions = (payload: Record<string, unknown>) => {
   const requiredPermissions = new Set<string>();
 
@@ -230,6 +238,29 @@ export const caseController = {
         });
       }
 
+      const updatesNewCaseOnlyData = NEW_CASE_ONLY_UPDATE_KEYS.some((key) => validation.data[key] !== undefined);
+
+      if (updatesNewCaseOnlyData) {
+        const existingCase = await caseService.getCaseById(id, {
+          role: req.user?.role,
+          userId: getRequestUserId(req),
+        });
+
+        if (!existingCase) {
+          return res.status(404).json({
+            success: false,
+            message: "Case not found",
+          });
+        }
+
+        if (!NEW_CASE_STATUSES.has(existingCase.caseData.status)) {
+          return res.status(400).json({
+            success: false,
+            message: "Only new cases can be edited",
+          });
+        }
+      }
+
       const missingPermissions = findMissingPermissions(
         req,
         collectRequiredPatchPermissions(validation.data as Record<string, unknown>)
@@ -301,6 +332,36 @@ export const caseController = {
         success: false,
         message: "Failed to update case",
         error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  async delete(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid case ID",
+        });
+      }
+
+      const deletedCase = await caseService.deleteNewCase(id);
+
+      return res.status(200).json({
+        success: true,
+        message: "Case deleted successfully",
+        data: deletedCase,
+      });
+    } catch (error) {
+      logCaseError("delete", error);
+      const message = error instanceof Error ? error.message : "Failed to delete case";
+      const statusCode = message === "Case not found" ? 404 : 400;
+
+      return res.status(statusCode).json({
+        success: false,
+        message,
       });
     }
   },

@@ -1,5 +1,5 @@
 import { db } from "../../db";
-import { caseParts, cases, caseStatusHistory, customers, devices, inventoryItems, inventoryMovements, users } from "../../db/schema";
+import { caseParts, cases, caseServices, caseStatusHistory, customers, devices, inventoryItems, inventoryMovements, invoiceItems, invoices, mediaAssets, users } from "../../db/schema";
 import { eq, desc, sql, or, isNotNull, isNull, and, notInArray, inArray } from "drizzle-orm";
 import { CaseStatus, CASE_STATUSES } from "./constants";
 import { validateStatusTransition, validateStatusSpecificRules } from "./cases.validation";
@@ -230,6 +230,8 @@ type CaseDetails = {
     email: string;
   } | null;
 };
+
+const NEW_CASE_STATUSES = new Set(["received", "new"]);
 
 type CaseAccessContext = {
   role?: string;
@@ -791,6 +793,45 @@ export const caseService = {
       .returning(returnCaseFields);
 
     return updatedCases[0];
+  },
+
+  async deleteNewCase(id: number): Promise<CaseRow> {
+    return await db.transaction(async (tx) => {
+      const foundCases = await tx
+        .select(returnCaseFields)
+        .from(cases)
+        .where(eq(cases.id, id))
+        .limit(1);
+
+      const existingCase = foundCases[0];
+
+      if (!existingCase) {
+        throw new Error("Case not found");
+      }
+
+      if (!NEW_CASE_STATUSES.has(existingCase.status)) {
+        throw new Error("Only new cases can be deleted");
+      }
+
+      const relatedInvoices = await tx
+        .select({ id: invoices.id })
+        .from(invoices)
+        .where(eq(invoices.caseId, id));
+      const relatedInvoiceIds = relatedInvoices.map((invoice) => invoice.id);
+
+      if (relatedInvoiceIds.length > 0) {
+        await tx.delete(invoiceItems).where(inArray(invoiceItems.invoiceId, relatedInvoiceIds));
+        await tx.delete(invoices).where(inArray(invoices.id, relatedInvoiceIds));
+      }
+
+      await tx.delete(mediaAssets).where(eq(mediaAssets.caseId, id));
+      await tx.delete(caseParts).where(eq(caseParts.caseId, id));
+      await tx.delete(caseServices).where(eq(caseServices.caseId, id));
+      await tx.delete(caseStatusHistory).where(eq(caseStatusHistory.caseId, id));
+      await tx.delete(cases).where(eq(cases.id, id));
+
+      return existingCase;
+    });
   },
 
   async confirmCustomerApproval(id: number, changedBy: number): Promise<CaseRow> {

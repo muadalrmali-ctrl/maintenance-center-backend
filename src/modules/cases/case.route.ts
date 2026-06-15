@@ -14,6 +14,7 @@ router.get("/maintenance-operations", requirePermission("maintenance_operations.
 router.get("/maintenance-operations/:id", requirePermission("maintenance_operations.view"), caseController.getMaintenanceOperationById);
 router.get("/:id", requirePermission("cases.view"), caseController.getById);
 router.patch("/:id", requirePermission("cases.view"), caseController.update);
+router.delete("/:id", requirePermission("cases.create"), caseController.delete);
 
 // Technician and Technician Manager can change status
 router.patch("/:id/status", requireAnyPermission(["cases.diagnosis.edit", "cases.approval.prepare_execution", "cases.in_progress.mark_repaired"]), caseController.changeStatus);
