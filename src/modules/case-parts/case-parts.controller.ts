@@ -3,6 +3,29 @@ import { casePartsService } from "./case-parts.service";
 import { addPartSchema } from "./case-parts.validation";
 import { caseService } from "../cases/case.service";
 
+const ensureReceptionPointCanAccessCase = async (req: Request, res: Response, caseId: number, requireLocalRepair = false) => {
+  const caseData = await caseService.getCaseById(caseId, {
+    role: req.user?.role,
+    userId: req.user?.id ?? null,
+    receptionPointId: req.user?.receptionPointId ?? null,
+  });
+
+  if (!caseData) {
+    res.status(404).json({ success: false, message: "Case not found" });
+    return false;
+  }
+
+  if (req.user?.role === "reception_point_user" && requireLocalRepair && caseData.caseData.processingMode !== "local_repair") {
+    res.status(403).json({
+      success: false,
+      message: "Reception point users can only manage parts for local repair cases",
+    });
+    return false;
+  }
+
+  return true;
+};
+
 export const casePartsController = {
   async requestPart(req: Request, res: Response) {
     try {
@@ -17,6 +40,8 @@ export const casePartsController = {
       if (!requestedBy) {
         return res.status(401).json({ success: false, message: "Unauthorized" });
       }
+
+      if (!(await ensureReceptionPointCanAccessCase(req, res, caseId, true))) return;
 
       const part = await casePartsService.requestPart(caseId, partId, requestedBy);
 
@@ -53,6 +78,8 @@ export const casePartsController = {
       }
 
       const validatedData = addPartSchema.parse(req.body);
+
+      if (!(await ensureReceptionPointCanAccessCase(req, res, caseId, true))) return;
 
       const part = await casePartsService.addPart(caseId, {
         ...validatedData,
@@ -93,6 +120,7 @@ export const casePartsController = {
       const caseData = await caseService.getCaseById(caseId, {
         role: req.user?.role,
         userId: req.user?.id ?? null,
+        receptionPointId: req.user?.receptionPointId ?? null,
       });
 
       if (!caseData) {
@@ -138,6 +166,8 @@ export const casePartsController = {
         });
       }
 
+      if (!(await ensureReceptionPointCanAccessCase(req, res, caseId, true))) return;
+
       await casePartsService.removePart(caseId, partId, changedBy);
 
       return res.status(200).json({
@@ -174,6 +204,8 @@ export const casePartsController = {
         });
       }
 
+      if (!(await ensureReceptionPointCanAccessCase(req, res, caseId, true))) return;
+
       const part = await casePartsService.deliverPart(caseId, partId, deliveredBy);
 
       return res.status(200).json({
@@ -209,6 +241,8 @@ export const casePartsController = {
         });
       }
 
+      if (!(await ensureReceptionPointCanAccessCase(req, res, caseId, true))) return;
+
       const part = await casePartsService.receivePart(caseId, partId, receivedBy);
 
       return res.status(200).json({
@@ -238,6 +272,8 @@ export const casePartsController = {
         return res.status(401).json({ success: false, message: "Unauthorized" });
       }
 
+      if (!(await ensureReceptionPointCanAccessCase(req, res, caseId, true))) return;
+
       const part = await casePartsService.usePart(caseId, partId, changedBy);
 
       return res.status(200).json({
@@ -266,6 +302,8 @@ export const casePartsController = {
       if (!changedBy) {
         return res.status(401).json({ success: false, message: "Unauthorized" });
       }
+
+      if (!(await ensureReceptionPointCanAccessCase(req, res, caseId, true))) return;
 
       const part = await casePartsService.returnPart(caseId, partId, changedBy);
 

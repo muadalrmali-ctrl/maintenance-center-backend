@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { notificationsService } from "./notifications.service";
 import { createNotificationSchema, sendCustomerMessageSchema } from "./notifications.validation";
+import { caseService } from "../cases/case.service";
 
 const logNotificationError = (action: string, error: unknown) => {
   console.error(
@@ -64,6 +65,31 @@ export const notificationsController = {
           message: "Validation failed",
           errors: validation.error.issues,
         });
+      }
+
+      if (req.user?.role === "reception_point_user") {
+        const caseId = Number(validation.data.caseId);
+        const caseDetails = Number.isFinite(caseId)
+          ? await caseService.getCaseById(caseId, {
+              role: req.user.role,
+              userId: req.user.id,
+              receptionPointId: req.user.receptionPointId ?? null,
+            })
+          : undefined;
+
+        if (!caseDetails) {
+          return res.status(404).json({
+            success: false,
+            message: "Case not found",
+          });
+        }
+
+        if (caseDetails.caseData.processingMode !== "local_repair") {
+          return res.status(403).json({
+            success: false,
+            message: "Reception point users can only send notifications for local repair cases",
+          });
+        }
       }
 
       const result = await notificationsService.sendCustomerMessageToN8n(validation.data);

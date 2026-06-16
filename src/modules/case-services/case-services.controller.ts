@@ -3,6 +3,29 @@ import { caseServicesService } from "./case-services.service";
 import { addServiceSchema } from "./case-services.validation";
 import { caseService } from "../cases/case.service";
 
+const ensureReceptionPointCanAccessCase = async (req: Request, res: Response, caseId: number, requireLocalRepair = false) => {
+  const caseData = await caseService.getCaseById(caseId, {
+    role: req.user?.role,
+    userId: req.user?.id ?? null,
+    receptionPointId: req.user?.receptionPointId ?? null,
+  });
+
+  if (!caseData) {
+    res.status(404).json({ success: false, message: "Case not found" });
+    return false;
+  }
+
+  if (req.user?.role === "reception_point_user" && requireLocalRepair && caseData.caseData.processingMode !== "local_repair") {
+    res.status(403).json({
+      success: false,
+      message: "Reception point users can only manage services for local repair cases",
+    });
+    return false;
+  }
+
+  return true;
+};
+
 export const caseServicesController = {
   async addService(req: Request, res: Response) {
     try {
@@ -24,6 +47,8 @@ export const caseServicesController = {
       }
 
       const validatedData = addServiceSchema.parse(req.body);
+
+      if (!(await ensureReceptionPointCanAccessCase(req, res, caseId, true))) return;
 
       const service = await caseServicesService.addService(caseId, {
         ...validatedData,
@@ -64,6 +89,7 @@ export const caseServicesController = {
       const caseData = await caseService.getCaseById(caseId, {
         role: req.user?.role,
         userId: req.user?.id ?? null,
+        receptionPointId: req.user?.receptionPointId ?? null,
       });
 
       if (!caseData) {
@@ -100,6 +126,8 @@ export const caseServicesController = {
           message: "Invalid case or service ID",
         });
       }
+
+      if (!(await ensureReceptionPointCanAccessCase(req, res, caseId, true))) return;
 
       await caseServicesService.removeService(caseId, serviceId);
 

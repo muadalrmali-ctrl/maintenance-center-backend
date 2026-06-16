@@ -925,7 +925,13 @@ export const caseService = {
         throw new Error("Case not found");
       }
 
-      if (!NEW_CASE_STATUSES.has(existingCase.status)) {
+      const isPendingReceptionPointTransfer =
+        existingCase.processingMode === "send_to_main_center" &&
+        existingCase.status === CASE_STATUSES.IN_TRANSIT_TO_MAIN_CENTER &&
+        ["pending_send", "in_transit"].includes(existingCase.transferStatus) &&
+        !existingCase.mainCenterReceivedAt;
+
+      if (!NEW_CASE_STATUSES.has(existingCase.status) && !isPendingReceptionPointTransfer) {
         throw new Error("Only new cases can be deleted");
       }
 

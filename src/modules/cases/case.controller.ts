@@ -92,6 +92,16 @@ const NEW_CASE_ONLY_UPDATE_KEYS = [
   "customerComplaint",
   "serialNumber",
 ] as const;
+const RECEPTION_POINT_PRE_RECEIPT_UPDATE_KEYS = new Set([
+  "caseType",
+  "deviceId",
+  "customerComplaint",
+  "serialNumber",
+  "notes",
+  "localTechnicianName",
+  "localTechnicianPhone",
+  "localRepairNotes",
+]);
 
 const collectRequiredPatchPermissions = (payload: Record<string, unknown>) => {
   const requiredPermissions = new Set<string>();
@@ -128,6 +138,89 @@ const ensureReceptionPointCaseAccess = async (req: Request, res: Response, caseI
     message: "Case not found",
   });
   return false;
+};
+
+const getReceptionPointCaseForAction = async (req: Request, res: Response, caseId: number) => {
+  if (req.user?.role !== "reception_point_user") {
+    return null;
+  }
+
+  const caseDetails = await caseService.getCaseById(caseId, {
+    role: req.user?.role,
+    userId: getRequestUserId(req),
+    receptionPointId: getReceptionPointId(req),
+  });
+
+  if (!caseDetails) {
+    res.status(404).json({
+      success: false,
+      message: "Case not found",
+    });
+    return false;
+  }
+
+  return caseDetails;
+};
+
+const isReceivedAtMainCenter = (caseData: { transferStatus?: string | null; mainCenterReceivedAt?: Date | string | null }) =>
+  caseData.transferStatus === "received_at_main_center" || Boolean(caseData.mainCenterReceivedAt);
+
+const isReceptionPointLocalRepair = (caseData: { processingMode?: string | null }) =>
+  caseData.processingMode === "local_repair";
+
+const isReceptionPointPreReceipt = (caseData: { processingMode?: string | null; transferStatus?: string | null; mainCenterReceivedAt?: Date | string | null }) =>
+  caseData.processingMode === "send_to_main_center" && !isReceivedAtMainCenter(caseData);
+
+const ensureReceptionPointCanUpdateCase = async (
+  req: Request,
+  res: Response,
+  caseId: number,
+  payload: Record<string, unknown>
+) => {
+  const caseDetails = await getReceptionPointCaseForAction(req, res, caseId);
+  if (caseDetails === false) return false;
+  if (!caseDetails) return true;
+
+  const { caseData } = caseDetails;
+  if (isReceivedAtMainCenter(caseData) && !isReceptionPointLocalRepair(caseData)) {
+    res.status(403).json({
+      success: false,
+      message: "Reception point users can only view cases after main center receipt",
+    });
+    return false;
+  }
+
+  if (isReceptionPointPreReceipt(caseData)) {
+    const requestedKeys = Object.keys(payload).filter((key) => payload[key] !== undefined);
+    const forbiddenKeys = requestedKeys.filter((key) => !RECEPTION_POINT_PRE_RECEIPT_UPDATE_KEYS.has(key));
+
+    if (forbiddenKeys.length > 0) {
+      res.status(403).json({
+        success: false,
+        message: "Reception point users can only edit intake data before main center receipt",
+        forbiddenKeys,
+      });
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const ensureReceptionPointCanPerformLocalAction = async (req: Request, res: Response, caseId: number) => {
+  const caseDetails = await getReceptionPointCaseForAction(req, res, caseId);
+  if (caseDetails === false) return false;
+  if (!caseDetails) return true;
+
+  if (!isReceptionPointLocalRepair(caseDetails.caseData)) {
+    res.status(403).json({
+      success: false,
+      message: "Reception point users can only perform workflow actions on local repair cases",
+    });
+    return false;
+  }
+
+  return true;
 };
 
 export const caseController = {
@@ -401,19 +494,8 @@ export const caseController = {
         });
       }
 
-      if (req.user?.role === "reception_point_user") {
-        const accessibleCase = await caseService.getCaseById(id, {
-          role: req.user?.role,
-          userId: getRequestUserId(req),
-          receptionPointId: getReceptionPointId(req),
-        });
-
-        if (!accessibleCase) {
-          return res.status(404).json({
-            success: false,
-            message: "Case not found",
-          });
-        }
+      if (!(await ensureReceptionPointCanUpdateCase(req, res, id, validation.data as Record<string, unknown>))) {
+        return;
       }
 
       const updatesNewCaseOnlyData = NEW_CASE_ONLY_UPDATE_KEYS.some((key) => validation.data[key] !== undefined);
@@ -533,6 +615,15 @@ export const caseController = {
         return;
       }
 
+      const rpCaseDetails = await getReceptionPointCaseForAction(req, res, id);
+      if (rpCaseDetails === false) return;
+      if (rpCaseDetails && isReceivedAtMainCenter(rpCaseDetails.caseData) && !isReceptionPointLocalRepair(rpCaseDetails.caseData)) {
+        return res.status(403).json({
+          success: false,
+          message: "Reception point users cannot delete cases after main center receipt",
+        });
+      }
+
       const deletedCase = await caseService.deleteNewCase(id);
 
       return res.status(200).json({
@@ -581,7 +672,7 @@ export const caseController = {
         });
       }
 
-      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+      if (!(await ensureReceptionPointCanPerformLocalAction(req, res, id))) {
         return;
       }
 
@@ -638,7 +729,7 @@ export const caseController = {
         });
       }
 
-      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+      if (!(await ensureReceptionPointCanPerformLocalAction(req, res, id))) {
         return;
       }
 
@@ -663,6 +754,7 @@ export const caseController = {
       const operations = await caseService.getMaintenanceOperations({
         role: req.user?.role,
         userId: getRequestUserId(req),
+        receptionPointId: getReceptionPointId(req),
       });
 
       return res.status(200).json({
@@ -691,6 +783,7 @@ export const caseController = {
       const operation = await caseService.getMaintenanceOperationById(id, {
         role: req.user?.role,
         userId: getRequestUserId(req),
+        receptionPointId: getReceptionPointId(req),
       });
 
       if (!operation) {
@@ -734,7 +827,7 @@ export const caseController = {
         return res.status(401).json({ success: false, message: "Unauthorized" });
       }
 
-      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+      if (!(await ensureReceptionPointCanPerformLocalAction(req, res, id))) {
         return;
       }
 
@@ -783,7 +876,7 @@ export const caseController = {
         return res.status(401).json({ success: false, message: "Unauthorized" });
       }
 
-      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+      if (!(await ensureReceptionPointCanPerformLocalAction(req, res, id))) {
         return;
       }
 
@@ -830,7 +923,7 @@ export const caseController = {
         return res.status(401).json({ success: false, message: "Unauthorized" });
       }
 
-      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+      if (!(await ensureReceptionPointCanPerformLocalAction(req, res, id))) {
         return;
       }
 
@@ -875,7 +968,7 @@ export const caseController = {
         return res.status(401).json({ success: false, message: "Unauthorized" });
       }
 
-      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+      if (!(await ensureReceptionPointCanPerformLocalAction(req, res, id))) {
         return;
       }
 
@@ -915,7 +1008,7 @@ export const caseController = {
         });
       }
 
-      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+      if (!(await ensureReceptionPointCanPerformLocalAction(req, res, id))) {
         return;
       }
 
@@ -952,7 +1045,7 @@ export const caseController = {
         });
       }
 
-      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+      if (!(await ensureReceptionPointCanPerformLocalAction(req, res, id))) {
         return;
       }
 
@@ -980,7 +1073,7 @@ export const caseController = {
         return res.status(400).json({ success: false, message: "Invalid case ID" });
       }
 
-      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+      if (!(await ensureReceptionPointCanPerformLocalAction(req, res, id))) {
         return;
       }
 
@@ -1013,7 +1106,7 @@ export const caseController = {
         return res.status(401).json({ success: false, message: "Unauthorized" });
       }
 
-      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+      if (!(await ensureReceptionPointCanPerformLocalAction(req, res, id))) {
         return;
       }
 

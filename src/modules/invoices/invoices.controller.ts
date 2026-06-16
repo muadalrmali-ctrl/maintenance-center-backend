@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { invoicesService } from "./invoices.service";
 import { createDirectInvoiceSchema, createInvoiceSchema, updateInvoiceStatusSchema } from "./validation";
+import { caseService } from "../cases/case.service";
 
 export const invoicesController = {
   async createInvoice(req: Request, res: Response) {
@@ -19,6 +20,26 @@ export const invoicesController = {
         return res.status(401).json({
           success: false,
           message: "Unauthorized",
+        });
+      }
+
+      const caseDetails = await caseService.getCaseById(caseId, {
+        role: req.user?.role,
+        userId: req.user?.id ?? null,
+        receptionPointId: req.user?.receptionPointId ?? null,
+      });
+
+      if (!caseDetails) {
+        return res.status(404).json({
+          success: false,
+          message: "Case not found",
+        });
+      }
+
+      if (req.user?.role === "reception_point_user" && caseDetails.caseData.processingMode !== "local_repair") {
+        return res.status(403).json({
+          success: false,
+          message: "Reception point users can only create invoices for local repair cases",
         });
       }
 
