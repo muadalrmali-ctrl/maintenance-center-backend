@@ -1,17 +1,16 @@
 import { Router } from "express";
 import { customerController } from "./customer.controller";
 import { authMiddleware } from "../../middlewares/auth";
-import { requirePermission } from "../../middlewares/permission";
+import { requireAnyPermission, requirePermission } from "../../middlewares/permission";
 
 const router = Router();
 
 router.use(authMiddleware);
-router.use(requirePermission("accounting.customers.view"));
 
-router.post("/", customerController.create);
-router.get("/", customerController.getAll);
-router.get("/:id/details", customerController.getDetails);
-router.get("/:id", customerController.getById);
-router.patch("/:id", customerController.update);
+router.post("/", requireAnyPermission(["accounting.customers.view", "cases.create"]), customerController.create);
+router.get("/", requireAnyPermission(["accounting.customers.view", "cases.create"]), customerController.getAll);
+router.get("/:id/details", requirePermission("accounting.customers.view"), customerController.getDetails);
+router.get("/:id", requirePermission("accounting.customers.view"), customerController.getById);
+router.patch("/:id", requirePermission("accounting.customers.view"), customerController.update);
 
 export default router;

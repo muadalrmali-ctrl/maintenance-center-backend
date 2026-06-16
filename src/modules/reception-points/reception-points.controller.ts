@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { receptionPointsService } from "./reception-points.service";
 import { createReceptionPointSchema, updateReceptionPointSchema } from "./reception-points.validation";
+import { requestHasPermission } from "../../middlewares/permission";
 
 const getId = (value: string | string[] | undefined) => {
   const id = Number(Array.isArray(value) ? value[0] : value);
@@ -8,8 +9,25 @@ const getId = (value: string | string[] | undefined) => {
 };
 
 export const receptionPointsController = {
-  async list(_req: Request, res: Response) {
+  async list(req: Request, res: Response) {
     try {
+      if (req.user?.role === "reception_point_user") {
+        if (!req.user.receptionPointId) {
+          return res.status(403).json({ success: false, message: "Reception point user is not linked to a reception point" });
+        }
+
+        const point = await receptionPointsService.getById(req.user.receptionPointId);
+        return res.status(200).json({ success: true, data: point ? [point] : [] });
+      }
+
+      if (!requestHasPermission(req, "reception_points.view")) {
+        return res.status(403).json({
+          success: false,
+          message: "Insufficient permissions",
+          requiredPermission: "reception_points.view",
+        });
+      }
+
       return res.status(200).json({ success: true, data: await receptionPointsService.list() });
     } catch (error) {
       return res.status(500).json({ success: false, message: "Failed to retrieve reception points", error: error instanceof Error ? error.message : "Unknown error" });

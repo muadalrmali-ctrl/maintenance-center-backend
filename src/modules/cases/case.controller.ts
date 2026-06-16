@@ -108,6 +108,28 @@ const collectRequiredPatchPermissions = (payload: Record<string, unknown>) => {
 const findMissingPermissions = (req: Request, permissionKeys: string[]) =>
   permissionKeys.filter((permissionKey) => !requestHasPermission(req, permissionKey));
 
+const ensureReceptionPointCaseAccess = async (req: Request, res: Response, caseId: number) => {
+  if (req.user?.role !== "reception_point_user") {
+    return true;
+  }
+
+  const accessibleCase = await caseService.getCaseById(caseId, {
+    role: req.user?.role,
+    userId: getRequestUserId(req),
+    receptionPointId: getReceptionPointId(req),
+  });
+
+  if (accessibleCase) {
+    return true;
+  }
+
+  res.status(404).json({
+    success: false,
+    message: "Case not found",
+  });
+  return false;
+};
+
 export const caseController = {
   async create(req: Request, res: Response) {
     try {
@@ -507,6 +529,10 @@ export const caseController = {
         });
       }
 
+      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+        return;
+      }
+
       const deletedCase = await caseService.deleteNewCase(id);
 
       return res.status(200).json({
@@ -553,6 +579,10 @@ export const caseController = {
           success: false,
           message: "Unauthorized",
         });
+      }
+
+      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+        return;
       }
 
       const requiredPermission = CASE_STATUS_PERMISSION_MAP[validation.data.toStatus];
@@ -606,6 +636,10 @@ export const caseController = {
           success: false,
           message: "Unauthorized",
         });
+      }
+
+      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+        return;
       }
 
       const caseData = await caseService.confirmCustomerApproval(id, changedBy);
@@ -700,6 +734,10 @@ export const caseController = {
         return res.status(401).json({ success: false, message: "Unauthorized" });
       }
 
+      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+        return;
+      }
+
       const caseData = await caseService.startExecution(id, {
         customerApprovalConfirmed: validation.data.customerApprovalConfirmed,
         durationDays: validation.data.durationDays,
@@ -745,6 +783,10 @@ export const caseController = {
         return res.status(401).json({ success: false, message: "Unauthorized" });
       }
 
+      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+        return;
+      }
+
       const caseData = await caseService.pauseExecution(id, {
         notes: validation.data.notes ?? null,
         latestMessage: validation.data.latestMessage ?? null,
@@ -788,6 +830,10 @@ export const caseController = {
         return res.status(401).json({ success: false, message: "Unauthorized" });
       }
 
+      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+        return;
+      }
+
       const caseData = await caseService.resumeExecution(id, {
         notes: validation.data.notes ?? null,
         changedBy,
@@ -829,6 +875,10 @@ export const caseController = {
         return res.status(401).json({ success: false, message: "Unauthorized" });
       }
 
+      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+        return;
+      }
+
       const caseData = await caseService.completeRepair(id, {
         notes: validation.data.notes ?? null,
         changedBy,
@@ -865,6 +915,10 @@ export const caseController = {
         });
       }
 
+      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+        return;
+      }
+
       const caseData = await caseService.saveRepairQuality(id, validation.data);
 
       return res.status(200).json({
@@ -898,6 +952,10 @@ export const caseController = {
         });
       }
 
+      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+        return;
+      }
+
       const caseData = await caseService.sendReadyNotification(id, validation.data);
 
       return res.status(200).json({
@@ -920,6 +978,10 @@ export const caseController = {
 
       if (isNaN(id)) {
         return res.status(400).json({ success: false, message: "Invalid case ID" });
+      }
+
+      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+        return;
       }
 
       const caseData = await caseService.markCustomerReceived(id);
@@ -949,6 +1011,10 @@ export const caseController = {
 
       if (!changedBy) {
         return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      if (!(await ensureReceptionPointCaseAccess(req, res, id))) {
+        return;
       }
 
       const caseData = await caseService.finalizeOperation(id, changedBy, req.body);
