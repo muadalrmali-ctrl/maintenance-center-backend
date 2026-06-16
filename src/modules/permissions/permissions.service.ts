@@ -62,6 +62,8 @@ export const permissionsService = {
       sortOrder: number;
     }>
   > {
+    await this.seedCatalog();
+
     const catalogRows = await db
       .select({
         key: permissions.key,
@@ -72,11 +74,6 @@ export const permissionsService = {
         sortOrder: permissions.sortOrder,
       })
       .from(permissions);
-
-    if (!catalogRows.length) {
-      await this.seedCatalog();
-      return this.getCatalog();
-    }
 
     const activeKeys = new Set(ALL_PERMISSION_KEYS);
     return catalogRows
