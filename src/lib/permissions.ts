@@ -23,7 +23,11 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { key: "cases.create", label: "إنشاء حالة جديدة", group: "cases", parentKey: "cases.view" },
   { key: "reception_points.view", label: "عرض نقاط الاستلام", group: "cases" },
   { key: "reception_points.manage", label: "إدارة نقاط الاستلام", group: "cases", parentKey: "reception_points.view" },
+  { key: "reception_points.incoming_cases.view", label: "عرض الحالات القادمة من نقاط الاستلام", group: "cases", parentKey: "reception_points.view" },
   { key: "reception_points.receive_cases", label: "استلام الحالات القادمة من نقاط الاستلام", group: "cases", parentKey: "reception_points.view" },
+  { key: "reception_points.case.create", label: "إنشاء حالة باسم نقطة استلام", group: "cases", parentKey: "cases.create" },
+  { key: "reception_points.own_cases.view", label: "عرض حالات نقطة الاستلام الخاصة بالمستخدم", group: "cases", parentKey: "cases.view" },
+  { key: "reception_points.local_repair.manage", label: "إدارة حالات الصيانة المحلية", group: "cases", parentKey: "reception_points.own_cases.view" },
   { key: "cases.column.new.view", label: "عرض عمود حالة جديدة", group: "cases", parentKey: "cases.view" },
   { key: "cases.column.waiting.view", label: "عرض عمود بانتظار القطعة", group: "cases", parentKey: "cases.view" },
   { key: "cases.column.diagnosis.view", label: "عرض عمود قيد التشخيص", group: "cases", parentKey: "cases.view" },
@@ -106,6 +110,9 @@ const DEFAULT_RECEPTIONIST_PERMISSIONS = [
   "cases.repaired.invoice.preview",
   "cases.repaired.ready_notification.send",
   "cases.column.not_repairable.view",
+  "reception_points.view",
+  "reception_points.incoming_cases.view",
+  "reception_points.receive_cases",
   "maintenance_operations.view",
   "maintenance_operations.quality_saved_data.view",
   "maintenance_operations.final_invoice.view",
@@ -230,6 +237,11 @@ const DEFAULT_TECHNICIAN_MANAGER_PERMISSIONS = [
 const DEFAULT_MAINTENANCE_MANAGER_PERMISSIONS = [
   ...DEFAULT_TECHNICIAN_MANAGER_PERMISSIONS,
   "cases.create",
+  "reception_points.view",
+  "reception_points.manage",
+  "reception_points.incoming_cases.view",
+  "reception_points.receive_cases",
+  "reception_points.case.create",
   "sales.view",
   "sales.create",
   "reports.sales.view",
@@ -245,6 +257,10 @@ const DEFAULT_RECEPTION_POINT_USER_PERMISSIONS = [
   "dashboard.view",
   "cases.view",
   "cases.create",
+  "reception_points.case.create",
+  "reception_points.own_cases.view",
+  "reception_points.incoming_cases.view",
+  "reception_points.local_repair.manage",
   "cases.column.new.view",
   "cases.column.waiting.view",
   "cases.column.diagnosis.view",
@@ -257,6 +273,12 @@ const DEFAULT_RECEPTION_POINT_USER_PERMISSIONS = [
   "cases.column.repaired.view",
   "cases.repaired.summary.view",
   "cases.column.not_repairable.view",
+  "maintenance_operations.view",
+  "maintenance_operations.quality_saved_data.view",
+  "maintenance_operations.final_invoice.view",
+  "maintenance_operations.after_repair_image.view",
+  "maintenance_operations.after_repair_video.view",
+  "maintenance_operations.damaged_part_image.view",
 ];
 
 export const DEFAULT_ROLE_PERMISSION_KEYS: Record<AppRole, string[]> = {
@@ -271,6 +293,28 @@ export const DEFAULT_ROLE_PERMISSION_KEYS: Record<AppRole, string[]> = {
 
 export const getDefaultPermissionKeysForRole = (role: AppRole) =>
   [...new Set(DEFAULT_ROLE_PERMISSION_KEYS[role] ?? [])];
+
+const REQUIRED_ROLE_PERMISSION_KEYS: Partial<Record<AppRole, string[]>> = {
+  receptionist: [
+    "cases.view",
+    "reception_points.view",
+    "reception_points.incoming_cases.view",
+    "reception_points.receive_cases",
+  ],
+  reception_point_user: [
+    "dashboard.view",
+    "cases.view",
+    "cases.create",
+    "reception_points.case.create",
+    "reception_points.own_cases.view",
+    "reception_points.incoming_cases.view",
+    "reception_points.local_repair.manage",
+    "maintenance_operations.view",
+  ],
+};
+
+export const getRequiredPermissionKeysForRole = (role: AppRole) =>
+  REQUIRED_ROLE_PERMISSION_KEYS[role] ?? [];
 
 export const isPermissionKey = (key: string): key is string =>
   ALL_PERMISSION_KEYS.includes(key);

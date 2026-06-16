@@ -1,7 +1,13 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, notInArray } from "drizzle-orm";
 import { db } from "../../db";
 import { permissions, userPermissions, users } from "../../db/schema";
-import { ALL_PERMISSION_KEYS, PERMISSION_CATALOG, getDefaultPermissionKeysForRole, isPermissionKey } from "../../lib/permissions";
+import {
+  ALL_PERMISSION_KEYS,
+  PERMISSION_CATALOG,
+  getDefaultPermissionKeysForRole,
+  getRequiredPermissionKeysForRole,
+  isPermissionKey,
+} from "../../lib/permissions";
 import type { AppRole } from "../../lib/roles";
 
 const toCatalogRecord = (entry: (typeof PERMISSION_CATALOG)[number], index: number) => ({
@@ -42,6 +48,8 @@ export const permissionsService = {
         });
       }
     }
+
+    await db.delete(permissions).where(notInArray(permissions.key, ALL_PERMISSION_KEYS));
   },
 
   async getCatalog(): Promise<
@@ -70,7 +78,10 @@ export const permissionsService = {
       return this.getCatalog();
     }
 
-    return catalogRows.sort((left, right) => left.sortOrder - right.sortOrder);
+    const activeKeys = new Set(ALL_PERMISSION_KEYS);
+    return catalogRows
+      .filter((row) => activeKeys.has(row.key))
+      .sort((left, right) => left.sortOrder - right.sortOrder);
   },
 
   async getUserPermissionKeys(userId: number, role?: string | null) {
@@ -84,7 +95,10 @@ export const permissionsService = {
       .innerJoin(permissions, eq(userPermissions.permissionId, permissions.id))
       .where(eq(userPermissions.userId, userId));
 
-    return assignedPermissions.map((entry) => entry.key);
+    const assignedKeys = assignedPermissions.map((entry) => entry.key);
+    const requiredKeys = role ? getRequiredPermissionKeysForRole(role as AppRole) : [];
+
+    return [...new Set([...assignedKeys, ...requiredKeys])];
   },
 
   async assignDefaultPermissions(userId: number, role: AppRole) {
