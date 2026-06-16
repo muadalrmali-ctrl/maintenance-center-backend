@@ -2,6 +2,7 @@ import { Router } from "express";
 import { mediaController } from "./media.controller";
 import { authMiddleware } from "../../middlewares/auth";
 import { roleMiddleware } from "../../middlewares/role";
+import { requirePermission } from "../../middlewares/permission";
 
 const router = Router();
 
@@ -10,7 +11,7 @@ router.use(authMiddleware);
 
 router.post(
   "/upload-case-file",
-  roleMiddleware(["admin", "receptionist", "technician", "technician_manager", "maintenance_manager"]),
+  requirePermission("cases.create"),
   mediaController.uploadCaseMediaFile
 );
 
@@ -18,6 +19,6 @@ router.post(
 router.post("/", roleMiddleware(["admin"]), mediaController.uploadMedia);
 
 // GET /api/media/:entityType/:entityId - Get media by entity (all roles can read)
-router.get("/:entityType/:entityId", roleMiddleware(["admin", "receptionist", "technician", "store_manager", "technician_manager", "maintenance_manager"]), mediaController.getMediaByEntity);
+router.get("/:entityType/:entityId", requirePermission("cases.view"), mediaController.getMediaByEntity);
 
 export const mediaRoutes = router;

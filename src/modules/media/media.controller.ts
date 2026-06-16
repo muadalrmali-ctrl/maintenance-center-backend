@@ -25,6 +25,19 @@ export const mediaController = {
         });
       }
 
+      const caseAccess = await caseService.getCaseById(validation.data.entityId, {
+        role: req.user?.role,
+        userId: req.user?.id ?? null,
+        receptionPointId: req.user?.receptionPointId ?? null,
+      });
+
+      if (!caseAccess) {
+        return res.status(404).json({
+          success: false,
+          message: "Case not found",
+        });
+      }
+
       const media = await mediaService.uploadCaseMediaFile(validation.data, uploadedBy);
 
       return res.status(201).json({
@@ -101,6 +114,7 @@ export const mediaController = {
         const caseAccess = await caseService.getCaseById(entityIdNum, {
           role: req.user?.role,
           userId: req.user?.id ?? null,
+          receptionPointId: req.user?.receptionPointId ?? null,
         });
 
         if (!caseAccess) {
