@@ -9,6 +9,8 @@ const router = Router();
 router.post("/register", authMiddleware, roleMiddleware(["admin"]), authController.register);
 router.post("/team/activate", authMiddleware, roleMiddleware(["admin"]), authController.activateTeamAccounts);
 router.post("/login", authController.login);
+router.get("/password-reset/:token", authController.verifyPasswordResetToken);
+router.post("/password-reset/complete", authController.completePasswordReset);
 router.get(
   "/technicians",
   authMiddleware,
@@ -29,6 +31,7 @@ router.get(
 );
 router.get("/team/:id/permissions", authMiddleware, roleMiddleware(["admin"]), authController.getTeamMemberPermissions);
 router.put("/team/:id/permissions", authMiddleware, roleMiddleware(["admin"]), authController.updateTeamMemberPermissions);
+router.post("/team/:id/password-reset", authMiddleware, requirePermission("reset_user_password"), authController.createTeamMemberPasswordReset);
 
 router.get("/users-test", async (_req, res) => {
   res.status(200).json({

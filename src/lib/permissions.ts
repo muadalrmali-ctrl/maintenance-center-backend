@@ -73,6 +73,7 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { key: "accounting.view", label: "عرض صفحة المحاسبة", group: "accounting" },
   { key: "accounting.customers.view", label: "عرض قسم العملاء", group: "accounting", parentKey: "accounting.view" },
   { key: "accounting.team.view", label: "عرض قسم الفريق", group: "accounting", parentKey: "accounting.view" },
+  { key: "reset_user_password", label: "إعادة تعيين كلمة مرور المستخدمين", group: "accounting", parentKey: "accounting.team.view" },
   { key: "accounting.suppliers.view", label: "عرض قسم الموردين", group: "accounting", parentKey: "accounting.view" },
   { key: "accounting.suppliers.manage", label: "إدارة الموردين", group: "accounting", parentKey: "accounting.suppliers.view" },
   { key: "accounting.devices.view", label: "عرض قسم الأجهزة", group: "accounting", parentKey: "accounting.view" },

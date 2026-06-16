@@ -1,9 +1,9 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../../db";
-import { caseStatusHistory, cases, customers, devices, inventoryItems, inventoryMovements, invoices, staffInvitations, users } from "../../db/schema";
+import { caseStatusHistory, cases, customers, devices, inventoryItems, inventoryMovements, invoices, passwordResetTokens, staffInvitations, users } from "../../db/schema";
 import { env } from "../../config/env";
 import { APP_ROLES, TEAM_ROLES, isAppRole, roleLabels, type AppRole } from "../../lib/roles";
 import { permissionsService } from "../permissions/permissions.service";
@@ -39,6 +39,17 @@ type LoginResult = {
     createdAt: Date | null;
   };
   token: string;
+};
+
+type CreatePasswordResetInput = {
+  userId: number;
+  createdBy: number;
+  resetBaseUrl?: string;
+};
+
+type CompletePasswordResetInput = {
+  token: string;
+  password: string;
 };
 
 type ActivatedStaffAccount = {
@@ -143,6 +154,15 @@ type TeamMemberDetails = {
 };
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+const hashToken = (token: string) =>
+  crypto.createHash("sha256").update(token).digest("hex");
+
+const buildResetPasswordUrl = (token: string, resetBaseUrl?: string) => {
+  const frontendUrl = (resetBaseUrl || env.FRONTEND_URL || "").replace(/\/+$/, "");
+  const path = `/reset-password?token=${encodeURIComponent(token)}`;
+  return frontendUrl ? `${frontendUrl}${path}` : path;
+};
 
 const generateTemporaryPassword = () => {
   const token = crypto.randomBytes(9).toString("base64url");
@@ -579,6 +599,140 @@ export const authService = {
         .sort((left, right) => new Date(String(right.occurredAt ?? 0)).getTime() - new Date(String(left.occurredAt ?? 0)).getTime())
         .slice(0, 10),
     };
+  },
+
+  async createPasswordResetLink(input: CreatePasswordResetInput) {
+    const targetUsers = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+      })
+      .from(users)
+      .where(eq(users.id, input.userId))
+      .limit(1);
+
+    const targetUser = targetUsers[0];
+    if (!targetUser || !TEAM_ROLES.includes(targetUser.role as (typeof TEAM_ROLES)[number])) {
+      throw new Error("Team member not found");
+    }
+
+    const token = crypto.randomBytes(32).toString("base64url");
+    const tokenHash = hashToken(token);
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    await db.insert(passwordResetTokens).values({
+      userId: targetUser.id,
+      tokenHash,
+      expiresAt,
+      createdBy: input.createdBy,
+    });
+
+    return {
+      user: {
+        id: targetUser.id,
+        name: targetUser.name,
+        email: targetUser.email,
+      },
+      emailSent: false,
+      resetLink: buildResetPasswordUrl(token, input.resetBaseUrl),
+      expiresAt,
+    };
+  },
+
+  async verifyPasswordResetToken(token: string) {
+    const tokenHash = hashToken(token);
+    const records = await db
+      .select({
+        id: passwordResetTokens.id,
+        expiresAt: passwordResetTokens.expiresAt,
+        usedAt: passwordResetTokens.usedAt,
+        userId: users.id,
+        userName: users.name,
+        userEmail: users.email,
+      })
+      .from(passwordResetTokens)
+      .innerJoin(users, eq(passwordResetTokens.userId, users.id))
+      .where(eq(passwordResetTokens.tokenHash, tokenHash))
+      .limit(1);
+
+    const record = records[0];
+    if (!record) {
+      throw new Error("Password reset link is invalid");
+    }
+
+    if (record.usedAt) {
+      throw new Error("Password reset link has already been used");
+    }
+
+    if (record.expiresAt.getTime() <= Date.now()) {
+      throw new Error("Password reset link has expired");
+    }
+
+    return {
+      user: {
+        id: record.userId,
+        name: record.userName,
+        email: record.userEmail,
+      },
+      expiresAt: record.expiresAt,
+    };
+  },
+
+  async completePasswordReset(input: CompletePasswordResetInput) {
+    const tokenHash = hashToken(input.token);
+    const hashedPassword = await bcrypt.hash(input.password, 10);
+    const now = new Date();
+
+    return await db.transaction(async (tx) => {
+      const tokenRecords = await tx
+        .select({
+          id: passwordResetTokens.id,
+          userId: passwordResetTokens.userId,
+          expiresAt: passwordResetTokens.expiresAt,
+          usedAt: passwordResetTokens.usedAt,
+        })
+        .from(passwordResetTokens)
+        .where(and(eq(passwordResetTokens.tokenHash, tokenHash), isNull(passwordResetTokens.usedAt)))
+        .limit(1);
+
+      const resetToken = tokenRecords[0];
+      if (!resetToken) {
+        throw new Error("Password reset link is invalid or already used");
+      }
+
+      if (resetToken.expiresAt.getTime() <= now.getTime()) {
+        throw new Error("Password reset link has expired");
+      }
+
+      const updatedUsers = await tx
+        .update(users)
+        .set({
+          password: hashedPassword,
+        })
+        .where(eq(users.id, resetToken.userId))
+        .returning({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+        });
+
+      if (!updatedUsers[0]) {
+        throw new Error("User not found");
+      }
+
+      await tx
+        .update(passwordResetTokens)
+        .set({
+          usedAt: now,
+        })
+        .where(eq(passwordResetTokens.id, resetToken.id));
+
+      return {
+        user: updatedUsers[0],
+      };
+    });
   },
 
   async registerUser(input: RegisterUserInput) {

@@ -135,6 +135,106 @@ export const authController = {
     }
   },
 
+  async createTeamMemberPasswordReset(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const createdBy = req.user?.id;
+
+      if (!Number.isFinite(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid team member ID",
+        });
+      }
+
+      if (!createdBy) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const result = await authService.createPasswordResetLink({
+        userId: id,
+        createdBy,
+        resetBaseUrl: req.get("origin") || undefined,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: result.emailSent
+          ? "Password reset link sent successfully"
+          : "Password reset link created successfully",
+        data: result,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to create password reset link",
+      });
+    }
+  },
+
+  async verifyPasswordResetToken(req: Request, res: Response) {
+    try {
+      const token = String(req.params.token || "");
+
+      if (!token) {
+        return res.status(400).json({
+          success: false,
+          message: "Reset token is required",
+        });
+      }
+
+      const result = await authService.verifyPasswordResetToken(token);
+
+      return res.status(200).json({
+        success: true,
+        message: "Password reset token is valid",
+        data: result,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Invalid password reset token",
+      });
+    }
+  },
+
+  async completePasswordReset(req: Request, res: Response) {
+    try {
+      const token = typeof req.body?.token === "string" ? req.body.token : "";
+      const password = typeof req.body?.password === "string" ? req.body.password : "";
+
+      if (!token) {
+        return res.status(400).json({
+          success: false,
+          message: "Reset token is required",
+        });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({
+          success: false,
+          message: "Password must be at least 8 characters",
+        });
+      }
+
+      const result = await authService.completePasswordReset({ token, password });
+
+      return res.status(200).json({
+        success: true,
+        message: "Password reset successfully",
+        data: result,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to reset password",
+      });
+    }
+  },
+
   async getTechnicians(req: Request, res: Response) {
     try {
       const technicians = await authService.getTechnicians();
