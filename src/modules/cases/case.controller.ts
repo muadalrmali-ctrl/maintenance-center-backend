@@ -11,6 +11,7 @@ import {
   receiveAtMainCenterSchema,
 } from "./cases.validation";
 import { requestHasPermission } from "../../middlewares/permission";
+import { receptionPointsService } from "../reception-points/reception-points.service";
 
 const logCaseError = (action: string, error: unknown) => {
   console.error(
@@ -137,8 +138,58 @@ export const caseController = {
         });
       }
 
-      const sourceType = isReceptionPointUser ? "reception_point" : validation.data.sourceType;
-      const receptionPointId = isReceptionPointUser ? scopedReceptionPointId : validation.data.receptionPointId ?? null;
+      const requestedReceptionPointId = validation.data.receptionPointId ?? null;
+      const requestsReceptionPointCase =
+        validation.data.sourceType === "reception_point" || Boolean(requestedReceptionPointId);
+      let sourceType: "main_center" | "reception_point" = "main_center";
+      let receptionPointId: number | null = null;
+
+      if (isReceptionPointUser) {
+        if (requestedReceptionPointId && requestedReceptionPointId !== scopedReceptionPointId) {
+          return res.status(403).json({
+            success: false,
+            message: "Reception point users can only create cases for their assigned reception point",
+          });
+        }
+
+        if (validation.data.sourceType === "main_center") {
+          return res.status(403).json({
+            success: false,
+            message: "Reception point users cannot create main center cases",
+          });
+        }
+
+        sourceType = "reception_point";
+        receptionPointId = scopedReceptionPointId;
+      } else if (requestsReceptionPointCase) {
+        if (!requestHasPermission(req, "reception_points.manage")) {
+          return res.status(403).json({
+            success: false,
+            message: "You are not allowed to create cases for reception points",
+          });
+        }
+
+        if (!requestedReceptionPointId) {
+          return res.status(400).json({
+            success: false,
+            message: "receptionPointId is required when creating a reception point case",
+          });
+        }
+
+        sourceType = "reception_point";
+        receptionPointId = requestedReceptionPointId;
+      }
+
+      if (receptionPointId) {
+        try {
+          await receptionPointsService.assertActiveReceptionPoint(receptionPointId);
+        } catch (error) {
+          return res.status(400).json({
+            success: false,
+            message: error instanceof Error ? error.message : "Reception point is not active or does not exist",
+          });
+        }
+      }
 
       const caseData = await caseService.createCase({
         caseType: validation.data.caseType,
@@ -156,9 +207,9 @@ export const caseController = {
         assignedTechnicianId: validation.data.assignedTechnicianId,
         sourceType,
         receptionPointId,
-        createdAtReceptionPointBy: isReceptionPointUser ? createdBy : null,
-        processingMode: validation.data.processingMode,
-        transferStatus: validation.data.transferStatus,
+        createdAtReceptionPointBy: sourceType === "reception_point" ? createdBy : null,
+        processingMode: sourceType === "reception_point" ? validation.data.processingMode : "main_center_repair",
+        transferStatus: sourceType === "reception_point" ? validation.data.transferStatus : "not_required",
         localTechnicianName: validation.data.localTechnicianName,
         localTechnicianPhone: validation.data.localTechnicianPhone,
         localRepairNotes: validation.data.localRepairNotes,
