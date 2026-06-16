@@ -805,6 +805,38 @@ export const caseController = {
     }
   },
 
+  async deleteMaintenanceOperation(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id as string);
+      const changedBy = getRequestUserId(req);
+
+      if (isNaN(id)) {
+        return res.status(400).json({ success: false, message: "Invalid operation ID" });
+      }
+
+      if (!changedBy) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+      }
+
+      const deletedOperation = await caseService.deleteMaintenanceOperation(id, changedBy);
+
+      return res.status(200).json({
+        success: true,
+        message: "Maintenance operation deleted successfully",
+        data: deletedOperation,
+      });
+    } catch (error) {
+      logCaseError("deleteMaintenanceOperation", error);
+      const message = error instanceof Error ? error.message : "Failed to delete maintenance operation";
+      const statusCode = message === "Maintenance operation not found" ? 404 : 400;
+
+      return res.status(statusCode).json({
+        success: false,
+        message,
+      });
+    }
+  },
+
   async startExecution(req: Request, res: Response) {
     try {
       const id = parseInt(req.params.id as string);

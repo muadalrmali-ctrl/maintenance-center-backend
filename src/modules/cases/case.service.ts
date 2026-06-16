@@ -1560,17 +1560,60 @@ export const caseService = {
       .leftJoin(customers, eq(cases.customerId, customers.id))
       .leftJoin(devices, eq(cases.deviceId, devices.id))
       .where(and(
+        eq(cases.isArchived, false),
         or(isNotNull(cases.operationFinalizedAt), eq(cases.status, CASE_STATUSES.COMPLETED)),
         buildCaseAccessWhereClause(access),
       ))
       .orderBy(desc(cases.operationFinalizedAt));
   },
 
+  async deleteMaintenanceOperation(id: number, changedBy: number): Promise<CaseRow> {
+    return await db.transaction(async (tx) => {
+      const foundCases = await tx
+        .select(returnCaseFields)
+        .from(cases)
+        .where(eq(cases.id, id))
+        .limit(1);
+
+      const existingCase = foundCases[0];
+      if (!existingCase) {
+        throw new Error("Maintenance operation not found");
+      }
+
+      if (!existingCase.operationFinalizedAt && existingCase.status !== CASE_STATUSES.COMPLETED) {
+        throw new Error("Only finalized maintenance operations can be deleted");
+      }
+
+      if (existingCase.isArchived) {
+        throw new Error("Maintenance operation is already deleted");
+      }
+
+      const updatedCases = await tx
+        .update(cases)
+        .set({
+          isArchived: true,
+          updatedAt: new Date(),
+        })
+        .where(eq(cases.id, id))
+        .returning(returnCaseFields);
+
+      await insertCaseHistoryEvent(tx, {
+        caseId: id,
+        fromStatus: existingCase.status,
+        toStatus: existingCase.status,
+        changedBy,
+        notes: "Maintenance operation deleted from operations archive",
+      });
+
+      return updatedCases[0];
+    });
+  },
+
   async getMaintenanceOperationById(id: number, access?: CaseAccessContext): Promise<CaseDetails | undefined> {
     const operation = await this.getCaseById(id, access);
     if (!operation) return undefined;
 
-    if (!operation.caseData.operationFinalizedAt && operation.caseData.status !== CASE_STATUSES.COMPLETED) {
+    if (operation.caseData.isArchived || (!operation.caseData.operationFinalizedAt && operation.caseData.status !== CASE_STATUSES.COMPLETED)) {
       return undefined;
     }
 

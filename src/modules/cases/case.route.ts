@@ -13,6 +13,7 @@ router.get("/", requirePermission("cases.view"), caseController.getAll);
 router.get("/incoming-reception-cases", requireAnyPermission(["reception_points.incoming_cases.view", "reception_points.receive_cases", "cases.view"]), caseController.getIncomingReceptionPointCases);
 router.get("/maintenance-operations", requireAnyPermission(["maintenance_operations.view", "cases.view"]), caseController.getMaintenanceOperations);
 router.get("/maintenance-operations/:id", requireAnyPermission(["maintenance_operations.view", "cases.view"]), caseController.getMaintenanceOperationById);
+router.delete("/maintenance-operations/:id", requirePermission("delete_maintenance_operation"), caseController.deleteMaintenanceOperation);
 router.get("/:id", requirePermission("cases.view"), caseController.getById);
 router.patch("/:id", requirePermission("cases.view"), caseController.update);
 router.delete("/:id", requirePermission("cases.create"), caseController.delete);

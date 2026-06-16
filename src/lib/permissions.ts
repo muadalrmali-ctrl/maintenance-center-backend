@@ -54,6 +54,7 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { key: "maintenance_operations.after_repair_image.view", label: "عرض صور ما بعد الإصلاح", group: "maintenance_operations", parentKey: "maintenance_operations.view" },
   { key: "maintenance_operations.after_repair_video.view", label: "عرض فيديو ما بعد الإصلاح", group: "maintenance_operations", parentKey: "maintenance_operations.view" },
   { key: "maintenance_operations.damaged_part_image.view", label: "عرض صور القطعة المعطوبة", group: "maintenance_operations", parentKey: "maintenance_operations.view" },
+  { key: "delete_maintenance_operation", label: "حذف عمليات الصيانة", group: "maintenance_operations", parentKey: "maintenance_operations.view" },
   { key: "inventory.view", label: "عرض صفحة المخزون", group: "inventory" },
   { key: "inventory.admin_actions", label: "إجراءات إدارة المخزون", group: "inventory", parentKey: "inventory.view" },
   { key: "inventory.item.create", label: "إضافة قطعة", group: "inventory", parentKey: "inventory.admin_actions" },
