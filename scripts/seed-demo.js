@@ -120,7 +120,6 @@ const rolePermissions = {
     "accounting.view",
     "accounting.customers.view",
     "accounting.team.view",
-    "accounting.suppliers.view",
     "accounting.devices.view",
   ],
 };

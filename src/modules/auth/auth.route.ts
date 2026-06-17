@@ -31,6 +31,8 @@ router.get(
 );
 router.get("/team/:id/permissions", authMiddleware, roleMiddleware(["admin"]), authController.getTeamMemberPermissions);
 router.put("/team/:id/permissions", authMiddleware, roleMiddleware(["admin"]), authController.updateTeamMemberPermissions);
+router.patch("/team/:id", authMiddleware, requirePermission("edit_team_member"), authController.updateTeamMember);
+router.delete("/team/:id", authMiddleware, requirePermission("delete_team_member"), authController.deleteTeamMember);
 router.post("/team/:id/password-reset", authMiddleware, requirePermission("reset_user_password"), authController.createTeamMemberPasswordReset);
 
 router.get("/users-test", async (_req, res) => {

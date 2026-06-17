@@ -1,6 +1,6 @@
 import { db } from "../../db";
 import { cases, customers, devices, invoices } from "../../db/schema";
-import { eq, or } from "drizzle-orm";
+import { desc, eq, or, sql } from "drizzle-orm";
 
 type CreateCustomerInput = {
   name: string;
@@ -26,6 +26,7 @@ type Customer = {
   createdBy: number | null;
   createdAt: Date | null;
   updatedAt: Date | null;
+  casesCount?: number;
 };
 
 export const customerService = {
@@ -54,7 +55,31 @@ export const customerService = {
   },
 
   async getCustomers(): Promise<Customer[]> {
-    return await db.select().from(customers);
+    return await db
+      .select({
+        id: customers.id,
+        name: customers.name,
+        phone: customers.phone,
+        address: customers.address,
+        notes: customers.notes,
+        createdBy: customers.createdBy,
+        createdAt: customers.createdAt,
+        updatedAt: customers.updatedAt,
+        casesCount: sql<number>`count(${cases.id})::int`,
+      })
+      .from(customers)
+      .leftJoin(cases, eq(cases.customerId, customers.id))
+      .groupBy(
+        customers.id,
+        customers.name,
+        customers.phone,
+        customers.address,
+        customers.notes,
+        customers.createdBy,
+        customers.createdAt,
+        customers.updatedAt
+      )
+      .orderBy(desc(customers.createdAt));
   },
 
   async getCustomerById(id: number): Promise<Customer | undefined> {

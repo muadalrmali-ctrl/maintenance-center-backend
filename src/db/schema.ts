@@ -21,6 +21,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   phone: text("phone"),
   role: text("role").notNull().default("technician"),
+  status: text("status").notNull().default("active"),
   receptionPointId: integer("reception_point_id").references(() => receptionPoints.id),
   createdAt: timestamp("created_at").defaultNow(),
 });

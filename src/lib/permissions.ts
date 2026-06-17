@@ -73,10 +73,12 @@ export const PERMISSION_CATALOG: PermissionCatalogEntry[] = [
   { key: "reports.operations_workflow.view", label: "عرض تقارير التشغيل وسير العمل", group: "reports", parentKey: "reports.view" },
   { key: "accounting.view", label: "عرض صفحة المحاسبة", group: "accounting" },
   { key: "accounting.customers.view", label: "عرض قسم العملاء", group: "accounting", parentKey: "accounting.view" },
+  { key: "create_customer", label: "إنشاء عميل", group: "accounting", parentKey: "accounting.customers.view" },
+  { key: "edit_customer", label: "تعديل بيانات العميل", group: "accounting", parentKey: "accounting.customers.view" },
   { key: "accounting.team.view", label: "عرض قسم الفريق", group: "accounting", parentKey: "accounting.view" },
+  { key: "edit_team_member", label: "تعديل بيانات عضو الفريق", group: "accounting", parentKey: "accounting.team.view" },
+  { key: "delete_team_member", label: "حذف عضو الفريق", group: "accounting", parentKey: "accounting.team.view" },
   { key: "reset_user_password", label: "إعادة تعيين كلمة مرور المستخدمين", group: "accounting", parentKey: "accounting.team.view" },
-  { key: "accounting.suppliers.view", label: "عرض قسم الموردين", group: "accounting", parentKey: "accounting.view" },
-  { key: "accounting.suppliers.manage", label: "إدارة الموردين", group: "accounting", parentKey: "accounting.suppliers.view" },
   { key: "accounting.devices.view", label: "عرض قسم الأجهزة", group: "accounting", parentKey: "accounting.view" },
   { key: "accounting.devices.manage", label: "إدارة الأجهزة", group: "accounting", parentKey: "accounting.devices.view" },
 ];
@@ -130,9 +132,9 @@ const DEFAULT_RECEPTIONIST_PERMISSIONS = [
   "reports.operations_workflow.view",
   "accounting.view",
   "accounting.customers.view",
+  "create_customer",
+  "edit_customer",
   "accounting.team.view",
-  "accounting.suppliers.view",
-  "accounting.suppliers.manage",
   "accounting.devices.view",
   "accounting.devices.manage",
 ];
@@ -233,7 +235,7 @@ const DEFAULT_TECHNICIAN_MANAGER_PERMISSIONS = [
   "reports.operations_workflow.view",
   "accounting.view",
   "accounting.team.view",
-  "accounting.suppliers.view",
+  "edit_team_member",
 ];
 
 const DEFAULT_MAINTENANCE_MANAGER_PERMISSIONS = [
@@ -249,8 +251,8 @@ const DEFAULT_MAINTENANCE_MANAGER_PERMISSIONS = [
   "reports.sales.view",
   "reports.customers.view",
   "accounting.customers.view",
-  "accounting.suppliers.view",
-  "accounting.suppliers.manage",
+  "create_customer",
+  "edit_customer",
   "accounting.devices.view",
   "accounting.devices.manage",
 ];

@@ -50,6 +50,7 @@ export const authMiddleware = async (
         name: users.name,
         email: users.email,
         role: users.role,
+        status: users.status,
         receptionPointId: users.receptionPointId,
       })
       .from(users)
@@ -62,6 +63,13 @@ export const authMiddleware = async (
       return res.status(401).json({
         success: false,
         message: "Authenticated user no longer exists",
+      });
+    }
+
+    if (user.status !== "active") {
+      return res.status(401).json({
+        success: false,
+        message: "Authenticated user account is inactive",
       });
     }
 

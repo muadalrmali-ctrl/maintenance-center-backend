@@ -135,6 +135,79 @@ export const authController = {
     }
   },
 
+  async updateTeamMember(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+
+      if (!Number.isFinite(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid team member ID",
+        });
+      }
+
+      const updatedMember = await authService.updateTeamMember(id, {
+        name: typeof req.body?.name === "string" ? req.body.name : undefined,
+        email: typeof req.body?.email === "string" ? req.body.email : undefined,
+        phone: req.body?.phone === null || typeof req.body?.phone === "string" ? req.body.phone : undefined,
+        role: typeof req.body?.role === "string" ? req.body.role : undefined,
+        status: typeof req.body?.status === "string" ? req.body.status : undefined,
+        receptionPointId:
+          req.body?.receptionPointId === null
+            ? null
+            : req.body?.receptionPointId === undefined || req.body?.receptionPointId === ""
+              ? undefined
+              : Number(req.body.receptionPointId),
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Team member updated successfully",
+        data: updatedMember,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update team member";
+      return res.status(message === "Team member not found" ? 404 : 400).json({
+        success: false,
+        message,
+      });
+    }
+  },
+
+  async deleteTeamMember(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+
+      if (!Number.isFinite(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid team member ID",
+        });
+      }
+
+      if (req.user?.id === id) {
+        return res.status(400).json({
+          success: false,
+          message: "You cannot delete your own active admin account",
+        });
+      }
+
+      const updatedMember = await authService.deactivateTeamMember(id);
+
+      return res.status(200).json({
+        success: true,
+        message: "Team member deactivated successfully",
+        data: updatedMember,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to delete team member";
+      return res.status(message === "Team member not found" ? 404 : 400).json({
+        success: false,
+        message,
+      });
+    }
+  },
+
   async createTeamMemberPasswordReset(req: Request, res: Response) {
     try {
       const id = Number(req.params.id);

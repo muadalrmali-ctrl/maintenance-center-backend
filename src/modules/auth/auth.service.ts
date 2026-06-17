@@ -52,6 +52,15 @@ type CompletePasswordResetInput = {
   password: string;
 };
 
+type UpdateTeamMemberInput = {
+  name?: string;
+  email?: string;
+  phone?: string | null;
+  role?: string;
+  status?: string;
+  receptionPointId?: number | null;
+};
+
 type ActivatedStaffAccount = {
   id: number;
   name: string;
@@ -209,11 +218,12 @@ export const authService = {
         email: users.email,
         phone: users.phone,
         role: users.role,
+        status: users.status,
         receptionPointId: users.receptionPointId,
         createdAt: users.createdAt,
       })
       .from(users)
-      .where(inArray(users.role, [...TEAM_ROLES]));
+      .where(and(inArray(users.role, [...TEAM_ROLES]), eq(users.status, "active")));
   },
 
   async getTechnicians() {
@@ -224,11 +234,12 @@ export const authService = {
         email: users.email,
         phone: users.phone,
         role: users.role,
+        status: users.status,
         receptionPointId: users.receptionPointId,
         createdAt: users.createdAt,
       })
       .from(users)
-      .where(inArray(users.role, ["technician", "technician_manager"]));
+      .where(and(inArray(users.role, ["technician", "technician_manager"]), eq(users.status, "active")));
   },
 
   async getTeamMemberDetails(userId: number): Promise<TeamMemberDetails | undefined> {
@@ -239,6 +250,7 @@ export const authService = {
         email: users.email,
         phone: users.phone,
         role: users.role,
+        status: users.status,
         receptionPointId: users.receptionPointId,
         createdAt: users.createdAt,
       })
@@ -270,7 +282,7 @@ export const authService = {
         role: member.role,
         receptionPointId: member.receptionPointId,
         phone: member.phone ?? invitationRows[0]?.phone ?? null,
-        status: "نشط",
+        status: member.status,
         joinDate: member.createdAt,
         specialty: null,
         profilePhotoUrl: null,
@@ -601,6 +613,115 @@ export const authService = {
     };
   },
 
+  async updateTeamMember(userId: number, input: UpdateTeamMemberInput) {
+    const foundUsers = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        role: users.role,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const member = foundUsers[0];
+    if (!member || !TEAM_ROLES.includes(member.role as (typeof TEAM_ROLES)[number])) {
+      throw new Error("Team member not found");
+    }
+
+    const updateData: Partial<{
+      name: string;
+      email: string;
+      phone: string | null;
+      role: AppRole;
+      status: string;
+      receptionPointId: number | null;
+    }> = {};
+
+    if (input.name !== undefined) {
+      const name = input.name.trim();
+      if (!name) throw new Error("Name is required");
+      updateData.name = name;
+    }
+
+    if (input.email !== undefined) {
+      const email = normalizeEmail(input.email);
+      if (!email) throw new Error("Email is required");
+
+      if (email !== member.email) {
+        const existingUsers = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.email, email))
+          .limit(1);
+
+        if (existingUsers[0] && existingUsers[0].id !== userId) {
+          throw new Error("Email is already used by another user");
+        }
+      }
+
+      updateData.email = email;
+    }
+
+    if (input.phone !== undefined) {
+      updateData.phone = input.phone?.trim() || null;
+    }
+
+    if (input.role !== undefined) {
+      if (!isAppRole(input.role) || !TEAM_ROLES.includes(input.role as (typeof TEAM_ROLES)[number])) {
+        throw new Error("Invalid role specified");
+      }
+
+      updateData.role = input.role;
+    }
+
+    if (input.status !== undefined) {
+      if (!["active", "inactive"].includes(input.status)) {
+        throw new Error("Invalid status specified");
+      }
+
+      updateData.status = input.status;
+    }
+
+    if (input.receptionPointId !== undefined) {
+      updateData.receptionPointId = input.receptionPointId;
+    }
+
+    if (!Object.keys(updateData).length) {
+      return member;
+    }
+
+    const updatedUsers = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, userId))
+      .returning({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        phone: users.phone,
+        role: users.role,
+        status: users.status,
+        receptionPointId: users.receptionPointId,
+        createdAt: users.createdAt,
+      });
+
+    const updatedUser = updatedUsers[0];
+    if (!updatedUser) {
+      throw new Error("Team member not found");
+    }
+
+    if (updateData.role) {
+      await permissionsService.assignDefaultPermissions(updatedUser.id, updatedUser.role as AppRole);
+    }
+
+    return updatedUser;
+  },
+
+  async deactivateTeamMember(userId: number) {
+    return await this.updateTeamMember(userId, { status: "inactive" });
+  },
+
   async createPasswordResetLink(input: CreatePasswordResetInput) {
     const targetUsers = await db
       .select({
@@ -753,6 +874,7 @@ export const authService = {
         password: hashedPassword,
         phone: phone?.trim() || null,
         role,
+        status: "active",
         receptionPointId: null,
       })
       .returning({
@@ -778,6 +900,7 @@ export const authService = {
         email: users.email,
         password: users.password,
         role: users.role,
+        status: users.status,
         receptionPointId: users.receptionPointId,
         createdAt: users.createdAt,
       })
@@ -789,6 +912,10 @@ export const authService = {
 
     if (!user) {
       throw new Error("User not found");
+    }
+
+    if (user.status !== "active") {
+      throw new Error("User account is inactive");
     }
 
     const isMatch = await bcrypt.compare(data.password, user.password);
@@ -873,6 +1000,7 @@ export const authService = {
             email,
             password: hashedPassword,
             role: account.role,
+            status: "active",
           })
           .where(eq(users.id, existingUsers[0].id))
           .returning({
@@ -903,6 +1031,7 @@ export const authService = {
           email,
           password: hashedPassword,
           role: account.role,
+          status: "active",
         })
         .returning({
           id: users.id,
